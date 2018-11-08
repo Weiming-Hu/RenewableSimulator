@@ -30,11 +30,13 @@ else (DEFINED SAM_PATH)
 endif (DEFINED SAM_PATH)
 
 # Import SAM library
-include_directories(${SAM_PATH})
 add_library(ssc SHARED IMPORTED GLOBAL)
+set_target_properties(ssc PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${SAM_PATH}")
 if (APPLE)
     message(STATUS "System: APPLE")
-    set_target_properties(ssc PROPERTIES IMPORTED_LOCATION "${SAM_PATH}/osx64/ssc.dylib")
+    set_target_properties(ssc PROPERTIES
+        IMPORTED_LOCATION "${SAM_PATH}/osx64/ssc.dylib")
     
     if (CMAKE_INSTALL_RPATH)
         set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${SAM_PATH}/osx64/")
