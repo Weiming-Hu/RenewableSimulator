@@ -1,4 +1,5 @@
 build*
+output
 
 # CMake
 CMakeCache.txt

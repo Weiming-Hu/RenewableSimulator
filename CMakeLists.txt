@@ -10,7 +10,13 @@ endif(EXISTS ${COMMON_OUTPUT_DIR})
 
 file(MAKE_DIRECTORY ${COMMON_OUTPUT_DIR})
 file(MAKE_DIRECTORY "${COMMON_OUTPUT_DIR}/bin")
-file(MAKE_DIRECTORY "${COMMON_OUTPUT_DIR}/lib")
+
+# Define RPATH for MacOS
+option(CMAKE_MACOSX_RPATH "Whether RPATH should be used on MacOS" OFF)
+option(CMAKE_INSTALL_RPATH_USE_LINK_PATH "Whether to use link path during installation" ON)
+
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 # Adding requirement for C++11
 set(CMAKE_CXX_STANDARD 11)
@@ -25,8 +31,23 @@ endif (DEFINED SAM_PATH)
 
 # Import SAM library
 include_directories(${SAM_PATH})
-add_library(ssc SHARED IMPORTED)
-set_target_properties(ssc PROPERTIES IMPORTED_LOCATION "${SAM_PATH}/linux64/ssc.so")
+add_library(ssc SHARED IMPORTED GLOBAL)
+if (APPLE)
+    message(STATUS "System: APPLE")
+    set_target_properties(ssc PROPERTIES IMPORTED_LOCATION "${SAM_PATH}/osx64/ssc.dylib")
+    
+    if (CMAKE_INSTALL_RPATH)
+        set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_RPATH};${SAM_PATH}/osx64/")
+    else (CMAKE_INSTALL_RPATH)
+        set(CMAKE_INSTALL_RPATH "${SAM_PATH}/osx64/")
+    endif (CMAKE_INSTALL_RPATH)
+
+elseif (UNIX)
+    message(STATUS "System: UNIX")
+    set_target_properties(ssc PROPERTIES IMPORTED_LOCATION "${SAM_PATH}/linux64/ssc.so")
+else (APPLE)
+    message(ERROR "I don't know your system.")
+endif (APPLE)
 
 # Build the simulator
 message(STATUS "build application renewableSimulator")
