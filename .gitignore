@@ -1,6 +1,7 @@
 build*
 output
 *.swp
+*DS_Store
 
 # CMake
 CMakeCache.txt

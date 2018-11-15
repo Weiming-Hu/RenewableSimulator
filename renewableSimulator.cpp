@@ -15,6 +15,7 @@
 #include "sscapi.h"
 
 int main(int argc, char *argv[]) {
+    auto a = 0;
 
 	if ( argc < 2 ) {
 		printf("usage: pvwatts.exe <weather-file>\n");
