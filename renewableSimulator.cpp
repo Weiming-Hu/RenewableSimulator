@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
 	ssc_data_set_number( data, "azimuth", 180 );       // south facing
 	ssc_data_set_number( data, "adjust:constant", 0.0f ); // energy adjustment, 0 % losses
 	
+	// ssc_module_t module = ssc_module_create( "pvwattsv5" );
 	ssc_module_t module = ssc_module_create( "pvwattsv5" );
 	if ( NULL == module )
 	{
@@ -62,6 +63,7 @@ int main(int argc, char *argv[]) {
 		for ( i=0; i<len; i++ )
 			ac_total += ac[i];
 		printf("ac: %lg kWh\n", ac_total*0.001 );
+        printf("length of ac: %d \n", len);
 	}
 	else
 	{
