@@ -27,7 +27,7 @@ ssc_var_types = ("Invalid", "Input", "Output", "Both")
 
 
 
-def pvwattsv5(input):
+def run_model(model_name, resource_number_input, resource_array_input, other_number_input):
 
     # Create SSC container and data repository
     ssc = PySSC()
@@ -35,40 +35,25 @@ def pvwattsv5(input):
 
     # Set data
     resource_data = ssc.data_create()
-    ssc.data_set_number(resource_data, 'lat', input['lat'])
-    ssc.data_set_number(resource_data, 'lon', input['lon'])
-    ssc.data_set_number(resource_data, 'tz',  input['tz'])
-    ssc.data_set_number(resource_data, 'elev',  input['elev'])
 
-    ssc.data_set_array(resource_data, 'year',  input['year'])
-    ssc.data_set_array(resource_data, 'month',  input['month'])
-    ssc.data_set_array(resource_data, 'day',  input['day'])
-    ssc.data_set_array(resource_data, 'hour', input['hour'])
-
-    ssc.data_set_array(resource_data, 'dn', input['beam'])
-    ssc.data_set_array(resource_data, 'df', input['diffuse'])
-    ssc.data_set_array(resource_data, 'wspd', input['wspd'])
-    ssc.data_set_array(resource_data, 'tdry', input['tdry'])
-    ssc.data_set_array(resource_data, 'albedo', input['albedo'])
+    for name in resource_number_input.keys():
+        ssc.data_set_number(resource_data, name, resource_number_input[name])
+    for name in resource_array_input.keys():
+        ssc.data_set_array(resource_data, name, resource_array_input[name])
 
     ssc.data_set_table(ssc_data, 'solar_resource_data', resource_data )
     ssc.data_free(resource_data)
 
-    # Create simulation module
-    mod = ssc.module_create("pvwattsv5")
-    ssc.module_exec_set_print(0)
+    for name in other_number_input.keys():
+        ssc.data_set_number(ssc_data, name, other_number_input[name])
 
-    ssc.data_set_number(ssc_data, 'system_capacity', 4)
-    ssc.data_set_number(ssc_data, 'module_type', 0)
-    ssc.data_set_number(ssc_data, 'array_type', 0)
-    ssc.data_set_number(ssc_data, 'losses', 14)
-    ssc.data_set_number(ssc_data, 'tilt', 15)
-    ssc.data_set_number(ssc_data, 'azimuth', 180)
-    ssc.data_set_number(ssc_data, 'adjust:constant', 0)
+    # Create simulation module
+    mod = ssc.module_create(model_name)
+    ssc.module_exec_set_print(0)
 
     # Run simulation
     if ssc.module_exec(mod, ssc_data) == 0:
-        print 'PVWatts V5 simulation error'
+        print '{} simulation error'.format(model_name)
         idx = 1
         msg = ssc.module_log(mod, 0)
         while (msg != None):

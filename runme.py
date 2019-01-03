@@ -15,49 +15,65 @@ from sscapi import PySSC
 
 def run_pvwattsv5():
 
-    # Collect input data
     template_file = 'weatherTemplate.csv'
+    model_name = "pvwattsv5"
+
+    # Collect input data
     ssc = PySSC()
     scc_data = ssc.data_create()
     ssc.data_set_string(scc_data, 'file_name', template_file)
     ssc.module_exec_simple_no_thread('wfreader', scc_data)
 
-    input = {}
-    input['lat'] = ssc.data_get_number(scc_data, 'lat')
-    input['lon'] = ssc.data_get_number(scc_data, 'lon')
-    input['tz'] = ssc.data_get_number(scc_data, 'tz')
-    input['elev'] = ssc.data_get_number(scc_data, 'elev')
-    input['year'] = ssc.data_get_array(scc_data, 'year')
-    input['month'] = ssc.data_get_array(scc_data, 'month')
-    input['day'] = ssc.data_get_array(scc_data, 'day')
-    input['hour'] = ssc.data_get_array(scc_data, 'hour')
-    input['beam'] = ssc.data_get_array(scc_data, 'beam')
-    input['diffuse'] = ssc.data_get_array(scc_data, 'diffuse')
-    input['wspd'] = ssc.data_get_array(scc_data, 'wspd')
-    input['tdry'] = ssc.data_get_array(scc_data, 'tdry')
-    input['albedo'] = ssc.data_get_array(scc_data, 'albedo')
+    resource_number_input = {}
+    resource_number_input['lat'] = ssc.data_get_number(scc_data, 'lat')
+    resource_number_input['lon'] = ssc.data_get_number(scc_data, 'lon')
+    resource_number_input['tz'] = ssc.data_get_number(scc_data, 'tz')
+    resource_number_input['elev'] = ssc.data_get_number(scc_data, 'elev')
+    
+    other_number_input = {}
+    other_number_input['tilt'] = 15
+    other_number_input['losses'] = 14
+    other_number_input['azimuth'] = 180
+    other_number_input['array_type'] = 0
+    other_number_input['module_type'] = 0
+    other_number_input['system_capacity'] = 4
+    other_number_input['adjust:constant'] = 0
+
+    resource_array_input = {}
+    resource_array_input['year'] = ssc.data_get_array(scc_data, 'year')
+    resource_array_input['month'] = ssc.data_get_array(scc_data, 'month')
+    resource_array_input['day'] = ssc.data_get_array(scc_data, 'day')
+    resource_array_input['hour'] = ssc.data_get_array(scc_data, 'hour')
+    resource_array_input['dn'] = ssc.data_get_array(scc_data, 'beam')
+    resource_array_input['df'] = ssc.data_get_array(scc_data, 'diffuse')
+    resource_array_input['wspd'] = ssc.data_get_array(scc_data, 'wspd')
+    resource_array_input['tdry'] = ssc.data_get_array(scc_data, 'tdry')
+    resource_array_input['albedo'] = ssc.data_get_array(scc_data, 'albedo')
 
     ssc.data_free(scc_data)
 
     # Run simulation
-    output = funcs.pvwattsv5(input)
+    output = funcs.run_model(model_name, resource_number_input, resource_array_input, other_number_input)
 
     return output
 
 
 if __name__ == '__main__':
 
-    data_template = funcs.readWeatherTemplate(['lat', 'lon'], ['wspd'])
+    results = run_pvwattsv5()
+    print results['annual_energy']
 
-    funcs.printModuleVariables("pvwattsv5")
-    funcs.printModuleVariables("pvwattsv5_1ts")
+    # data_template = funcs.readWeatherTemplate(['lat', 'lon'], ['wspd'])
 
-    funcs.printAvailableModules()
+    # funcs.printModuleVariables("pvwattsv5")
+    # funcs.printModuleVariables("pvwattsv5_1ts")
 
-    nc_file = "/home/graduate/wuh20/github/RenewableSimulator/analogs.nc"
-    i_stations = [1, 2, 3, 4]
-    i_times = [0]
-    i_flts = [0, 1, 2, 3, 4, 5]
-    i_members = [0, 1, 2]
-    var_names = ["Analogs", "Times", "Xs", "Ys"]
-    data = funcs.getDataArray(nc_file, var_names, i_stations, i_times, i_flts, i_members)
+    # funcs.printAvailableModules()
+
+    # nc_file = "/home/graduate/wuh20/github/RenewableSimulator/analogs.nc"
+    # i_stations = [1, 2, 3, 4]
+    # i_times = [0]
+    # i_flts = [0, 1, 2, 3, 4, 5]
+    # i_members = [0, 1, 2]
+    # var_names = ["Analogs", "Times", "Xs", "Ys"]
+    # data = funcs.getDataArray(nc_file, var_names, i_stations, i_times, i_flts, i_members)
