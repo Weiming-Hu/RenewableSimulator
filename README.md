@@ -1,4 +1,4 @@
-# A Weather-Driven Renewable Energy Simulator
+# A Weather-Coupled Renewable Energy Simulator
 
 ## Introduction
 
