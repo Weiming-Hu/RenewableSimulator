@@ -4,7 +4,7 @@
 
 The renewable simulator is implemented with [the System Advisory Model (SAM)](https://sam.nrel.gov/). SAM is a performance and financial model designed to facilitate decision making for people involved in the renewable energy industry.
 
-This simulator focuses on solar photovoltaic power and wind power simulation. It uses weather predictions from [the Analog Ensemble package](https://github.com/Weiming-Hu/AnalogsEnsemble) and prepare the data so that they can be fed into SAM functions. It also provides functions to view the different model available in SAM and their requirements.
+This simulator focuses on solar photovoltaic power and wind power simulation. It uses weather predictions from [the Analog Ensemble package](https://weiming-hu.github.io/AnalogsEnsemble/) and prepare the data so that they can be fed into SAM functions. It also provides functions to view the different model available in SAM and their requirements.
 
 ## Installation
 
