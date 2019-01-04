@@ -27,22 +27,23 @@ ssc_var_types = ("Invalid", "Input", "Output", "Both")
 
 
 
-def run_model(model_name, resource_number_input, resource_array_input, other_number_input):
+def run_model(model_name, resource_number_input = [], resource_array_input = [], other_number_input = []):
 
     # Create SSC container and data repository
     ssc = PySSC()
     ssc_data = ssc.data_create()
 
-    # Set data
-    resource_data = ssc.data_create()
+    if (len(resource_array_input) is not 0 or len(resource_number_input) is not 0):
+        # Set data
+        resource_data = ssc.data_create()
 
-    for name in resource_number_input.keys():
-        ssc.data_set_number(resource_data, name, resource_number_input[name])
-    for name in resource_array_input.keys():
-        ssc.data_set_array(resource_data, name, resource_array_input[name])
+        for name in resource_number_input.keys():
+            ssc.data_set_number(resource_data, name, resource_number_input[name])
+        for name in resource_array_input.keys():
+            ssc.data_set_array(resource_data, name, resource_array_input[name])
 
-    ssc.data_set_table(ssc_data, 'solar_resource_data', resource_data )
-    ssc.data_free(resource_data)
+        ssc.data_set_table(ssc_data, 'solar_resource_data', resource_data )
+        ssc.data_free(resource_data)
 
     for name in other_number_input.keys():
         ssc.data_set_number(ssc_data, name, other_number_input[name])
@@ -63,6 +64,7 @@ def run_model(model_name, resource_number_input, resource_array_input, other_num
 
     # Get the output variable name list
     out_vars_index = _getVariablesIndexByType(ssc, mod)
+    out_vars_index.extend(_getVariablesIndexByType(ssc, mod, type = "Both"))
 
     # Extract output variables
     ret_dict = {}
