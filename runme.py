@@ -30,11 +30,11 @@ def run_pvwattsv5_1ts():
     other_number_input["tamb"] = 20
     other_number_input["wspd"] = 10
     other_number_input["alb"] = 0.2
-    # other_number_input["time_step"] = 1
+    # other_number_input["time_step"] = 
     other_number_input["system_capacity"] = 4
     other_number_input["module_type"] = 0
     other_number_input["dc_ac_ratio"] = 0.9
-    # other_number_input["inv_eff"] = 95
+    # other_number_input["inv_eff"] = 
     other_number_input["losses"] =14
     other_number_input["array_type"] = 0
     other_number_input["tilt"] = 15
@@ -44,7 +44,7 @@ def run_pvwattsv5_1ts():
     other_number_input["poa"] = 100
 
     output = funcs.run_model('pvwattsv5_1ts', other_number_input = other_number_input)
-    print "AC power: {}; DC power: {}".format(output["ac"], output["dc"])
+    return output
 
 
 def run_pvwattsv5():
@@ -94,10 +94,11 @@ def run_pvwattsv5():
 
 if __name__ == '__main__':
 
-    # results = run_pvwattsv5()
-    # print results['annual_energy']
+    output = run_pvwattsv5()
+    print "[pvwattsv5] Annual ennergy: {}".format(output['annual_energy'])
 
-    run_pvwattsv5_1ts()
+    output = run_pvwattsv5_1ts()
+    print "[pvwattsv5_1ts] AC power: {}; DC power: {}".format(output["ac"], output["dc"])
 
     # data_template = funcs.readWeatherTemplate(['lat', 'lon'], ['wspd'])
 
