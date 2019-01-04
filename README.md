@@ -1,44 +1,43 @@
-# RenewableSimulator
+# A Weather-Driven Renewable Energy Simulator
 
-The renewable energy simulator
+## Introduction
 
-## Known Issues
+The renewable simulator is implemented with [the System Advisory Model (SAM)](https://sam.nrel.gov/). SAM is a performance and financial model designed to facilitate decision making for people involved in the renewable energy industry.
 
-#### ssc.dylib library not found on MacOS
+This simulator focuses on solar photovoltaic power and wind power simulation. It uses weather predictions from [the Analog Ensemble package](https://github.com/Weiming-Hu/AnalogsEnsemble) and prepare the data so that they can be fed into SAM functions. It also provides functions to view the different model available in SAM and their requirements.
 
-[Reference](http://log.zyxar.com/blog/2012/03/10/install-name-on-os-x/)
+## Installation
 
-After successful compilation, if you receive the following error message when you try to run the executable, you probably need to change the install name of your `ssc.dylib` file.
+Please clone or download the repository. The program has the following requirements:
 
-```
-$ ./RenewableSimulator 
-dyld: Library not loaded: ssc.dylib
-  Referenced from: /Users/wuh20/github/RenewableSimulator/build/./RenewableSimulator
-  Reason: image not found
-Abort trap: 6
-```
+- Python 2.7
+- Python package `netCDF4`
 
-
-Let's check whether the install name is not correctly set up for the `ssc.dylib`. In my case, I put this library under `/Users/wuh20/packages/sam/osx64`.
+After checking the requirements, run the following check commands in a terminal:
 
 ```
-$ otool -D ssc.dylib 
-ssc.dylib:
-ssc.dylib
+$ python runme.py 
+[pvwattsv5] Annual ennergy: 6791.42236328
+[pvwattsv5_1ts] AC power: 39.2786483765; DC power: 67.7225570679
 ```
 
-In this case, the install name of the library is just itself, not the full path to the file. This is causing problems during the runtime because the program that is calling this library cannot find this library. Let's change its install name to the full path.
+## Feedbacks
+
+We appreciate collaborations and feedbacks from users. Please contact maintainer [Weiming Hu](http://weiming.ddns.net) through [weiming@psu.edu](weiming@psu.edu), or create tickets if you have any problems.
+
+Thank you!
 
 ```
-$ install_name_tool -id /Users/wuh20/packages/sam/osx64/ssc.dylib ssc.dylib 
-$ otool -D ssc.dylib 
-ssc.dylib:
-/Users/wuh20/packages/sam/osx64/ssc.dylib
-$ otool -L ssc.dylib 
-ssc.dylib:
-	/Users/wuh20/packages/sam/osx64/ssc.dylib (compatibility version 0.0.0, current version 0.0.0)
-	/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1252.0.0)
-	/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 400.9.0)
+# "`-''-/").___..--''"`-._
+#  (`6_ 6  )   `-.  (     ).`-.__.`)   WE ARE ...
+#  (_Y_.)'  ._   )  `._ `. ``-..-'    PENN STATE!
+#    _ ..`--'_..-_/  /--'_.' ,'
+#  (il),-''  (li),'  ((!.-'
+# 
+# Authors: 
+#     Weiming Hu <weiming@psu.edu>
+#
+# Geoinformatics and Earth Observation Laboratory (http://geolab.psu.edu)
+# Department of Geography and Institute for CyberScience
+# The Pennsylvania State University
 ```
-
-As you can see, after we change the install name of the library, the first line of the output of shared library used is changed accordingly. Now you should go back and rerun your program.
