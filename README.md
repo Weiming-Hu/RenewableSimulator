@@ -36,6 +36,7 @@ Thank you!
 # 
 # Authors: 
 #     Weiming Hu <weiming@psu.edu>
+#     Guido Cervone <cervone@psu.edu>
 #
 # Geoinformatics and Earth Observation Laboratory (http://geolab.psu.edu)
 # Department of Geography and Institute for CyberScience
