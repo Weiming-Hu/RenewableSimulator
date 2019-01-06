@@ -13,38 +13,41 @@
 import functions as funcs
 from sscapi import PySSC
 
+
+
 def run_pvwattsv5_1ts():
 
     # Configure input data
     other_number_input = {}
     other_number_input["year"] = 2018
-    other_number_input["month"] = 10
+    other_number_input["month"] = 7
     other_number_input["day"] = 1
-    other_number_input["hour"] = 12
+    other_number_input["hour"] = 19
     other_number_input["minute"] = 0
-    other_number_input["lat"] = 47
-    other_number_input["lon"] = 117
-    other_number_input["tz"] = 8
-    other_number_input["beam"] = 10
-    other_number_input["diffuse"] = 10
-    other_number_input["tamb"] = 20
-    other_number_input["wspd"] = 10
+    other_number_input["lat"] = 40.799733
+    other_number_input["lon"] = -77.8433542
+    other_number_input["tz"] = -5
+    other_number_input["beam"] = 866.981975
+    other_number_input["diffuse"] = 0
+    other_number_input["tamb"] = 37.470625
+    other_number_input["wspd"] = 3.16
     other_number_input["alb"] = 0.2
     # other_number_input["time_step"] = 
     other_number_input["system_capacity"] = 4
     other_number_input["module_type"] = 0
     other_number_input["dc_ac_ratio"] = 0.9
     # other_number_input["inv_eff"] = 
-    other_number_input["losses"] =14
+    other_number_input["losses"] = 14
     other_number_input["array_type"] = 0
     other_number_input["tilt"] = 15
-    other_number_input["azimuth"] = 180
+    other_number_input["azimuth"] = 239.082665
     other_number_input["gcr"] = 0.5
-    other_number_input["tcell"] = 20
-    other_number_input["poa"] = 100
+    other_number_input["tcell"] = 37.470625
+    other_number_input["poa"] = 0
 
     output = funcs.run_model('pvwattsv5_1ts', other_number_input = other_number_input)
     return output
+
 
 
 def run_pvwattsv5():
@@ -92,10 +95,11 @@ def run_pvwattsv5():
     return output
 
 
+
 if __name__ == '__main__':
 
-    output = run_pvwattsv5()
-    print "[pvwattsv5] Annual ennergy: {}".format(output['annual_energy'])
+    # output = run_pvwattsv5()
+    # print "[pvwattsv5] Annual ennergy: {}".format(output['annual_energy'])
 
     output = run_pvwattsv5_1ts()
     print "[pvwattsv5_1ts] AC power: {}; DC power: {}".format(output["ac"], output["dc"])
