@@ -20,3 +20,6 @@ CTestTestfile.cmake
 *.pyc
 venv
 .idea
+
+nbproject
+release

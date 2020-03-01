@@ -14,7 +14,7 @@ project(evergreen LANGUAGES C CXX)
 message(STATUS "
 ***********************************************************************
 *                                                                     *
-*      evergreen -- our pursuit for a more sustainable society        *
+*      evergreen -- our pursuit for a more sustainable future         *
 *                                                                     *
 ***********************************************************************
 ")
@@ -23,17 +23,28 @@ message(STATUS "
 option(skip_tools "Skip building SDKtools and TCSconsole" ON)
 option(skip_tests "Skip building SAM tests" ON)
 
-# Check whether SSC has been downloaded already
-check_ssc_download()
+option(BUILD_SSC "Build SSC from source. This might take a while because SSC is large." OFF)
 
-# Add SSC to our current project
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/ssc)
+# This is where our extra cmake scripts are
+set(EXTRA_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH ${EXTRA_MODULE_PATH})
+
+# Include our macros
+include("${EXTRA_MODULE_PATH}/macros.cmake")
+
+# Add library SSC
+add_ssc()
+
+# Add library AnEnIO
+add_AnEnIO()
 
 # Create target
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen.cpp)
 
-# Configure the properties of this target
-target_link_libraries(${PROJECT_NAME} PUBLIC sam_simulation_core)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC ssc)
+target_link_libraries(${PROJECT_NAME} PUBLIC AnEnIO)
 
 # Export the executable
 install(TARGETS ${PROJECT_NAME}
