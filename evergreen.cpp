@@ -114,6 +114,11 @@ void test_pvwattsv5() {
         int count = 0;
         
         for (int i = 0; i < len; ++i) {
+
+            if (count == 0) {
+                cout << "[" << i << "]: ";
+            }
+
             cout << ac[i] << ',';
             count++;
             
