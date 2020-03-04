@@ -25,6 +25,13 @@ option(skip_tests "Skip building SAM tests" ON)
 
 option(BUILD_SSC "Build SSC from source. This might take a while because SSC is large." OFF)
 
+# Only supporting Linux
+if(UNIX AND NOT APPLE)
+    message(STATUS "Linux detected")
+else(UNIX AND NOT APPLE)
+    message(FATAL_ERROR "Only supporting Linux")
+endif(UNIX AND NOT APPLE)
+
 # This is where our extra cmake scripts are
 set(EXTRA_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH ${EXTRA_MODULE_PATH})
