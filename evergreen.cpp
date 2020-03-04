@@ -15,15 +15,17 @@
 #include <iterator>
 
 #include "sscapi.h"
-
-#include "Times.h"
+#include "AnEnReadNcdf.h"
+#include "Array4DPointer.h"
 
 using namespace std;
+using namespace netCDF;
 
 static const int _NUM_TIMES = 8760;
 
 
-void printVersion() {
+void
+printVersion() {
     
     int version = ssc_version();
 
@@ -33,12 +35,39 @@ void printVersion() {
     return;
 }
 
-void test_pvwattsv5() {
-    cout << "Test module pvwattsv5" << endl;
+ssc_data_t
+read_weather_table(const string & file_name, Verbose verbose = Verbose::Warning) {
+
+    /*
+     * Create weather data table
+     */
+    ssc_data_t weather_table = ssc_data_create();
+    
+    
+    /*
+     * Read data from the NetCDF file
+     */
+    Parameters parameters;
+    Stations stations;
+    Times times, flts;
+    
+    Array4DPointer dn_arr, df_arr, t_arr, wspd_arr;
+    
+    AnEnReadNcdf anen_read(verbose);
+    NcFile nc(file_name, NcFile::FileMode::read);
+    
+    anen_read.read(nc, parameters);
+    
+    return weather_table;
+}
+
+void
+run_pvwattsv5() {
     
     /*
      * Prepare array data
      */
+
     ssc_number_t dn[_NUM_TIMES], df[_NUM_TIMES], tdry[_NUM_TIMES], wspd[_NUM_TIMES];
     
     fill(dn, dn + _NUM_TIMES, 3.5);
@@ -58,8 +87,8 @@ void test_pvwattsv5() {
     ssc_data_set_array(weather_table, "wspd", wspd, _NUM_TIMES);
     
     ssc_data_set_number(weather_table, "lat", 40);
-    ssc_data_set_number(weather_table, "lon", 70);
-    ssc_data_set_number(weather_table, "tz", -8);
+    ssc_data_set_number(weather_table, "lon", -70);
+    ssc_data_set_number(weather_table, "tz", -6);
 
     
     /*
@@ -144,9 +173,9 @@ void test_pvwattsv5() {
 int main() {
     cout << "evergreen -- our pursuit for a more sustainable future" << endl;
     
-    test_pvwattsv5();
-
-    Time time(100);
+    printVersion();
     
+    run_pvwattsv5();
+
     return 0;
 }

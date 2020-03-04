@@ -9,39 +9,6 @@
 # This file includes some macros for the project
 #
 
-# This macro takes care of creating a target of AnEnIO
-macro(add_AnEnIO)
-
-    if(AnEnIO_ROOT_DIR)
-        set(AnEnIO_INCLUDE_DIR "${AnEnIO_ROOT_DIR}/include")
-        set(AnEnIO_OBJECT "${AnEnIO_ROOT_DIR}/lib/cmake/AnEnIOTargets.cmake")
-        set(AnEnIO_LIB "${AnEnIO_ROOT_DIR}/lib/libAnEnIO.so")
-    else(AnEnIO_ROOT_DIR)
-
-        # Check whether it is under ~/packages/release
-        # This is just my personal habit
-        #
-        set(AnEnIO_INCLUDE_DIR "$ENV{HOME}/packages/release/include")
-        set(AnEnIO_OBJECT "$ENV{HOME}/packages/release/lib/cmake/AnEnIOTargets.cmake")
-        set(AnEnIO_LIB "$ENV{HOME}/packages/release/lib/libAnEnIO.so")
-        set(AnEn_LIB "$ENV{HOME}/packages/release/lib/libAnEn.so")
-
-        if(NOT EXISTS ${AnEnIO_LIB})
-            message(FATAL_ERROR "Please specify the installation root directory of AnEnIO (AnEnIO_ROOT_DIR)")
-        endif(NOT EXISTS ${AnEnIO_LIB})
-
-    endif(AnEnIO_ROOT_DIR)
-
-    add_library(AnEnIO SHARED IMPORTED)
-
-    set_target_properties(AnEnIO PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES ${AnEnIO_INCLUDE_DIR}
-        INTERFACE_LINK_LIBRARIES ${AnEn_LIB}
-        IMPORTED_LOCATION ${AnEnIO_LIB})
-
-endmacro(add_AnEnIO)
-
-
 # This macro takes care of creating a target of ssc
 macro(add_ssc)
 
