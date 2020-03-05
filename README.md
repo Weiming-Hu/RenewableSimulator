@@ -14,7 +14,7 @@ The following script walks you through the steps of installing `evergreen`.
 # If you are on a cluster, load the dependencies.
 # This is tested on XSEDE Stampede2
 #
-module load boost
+module load boost netcdf
 
 # Download the latest version of source files
 wget https://github.com/Weiming-Hu/RenewableSimulator/archive/master.zip
@@ -27,7 +27,7 @@ cd RenewableSimulator-master/
 mkdir build && cd build
 
 # Note that the CMAKE_PREFIX_PATH is where the AnEn and AnEnIO libraries are
-CC=icc CXX=icpc cmake -DCMAKE_PREFIX_PATH=~/packages/release/lib -DCMAKE_INSTALL_PREFIX=~/packages/release -DCMAKE_INSTALL_RPATH="`echo ~`/packages/release/lib;$TACC_BOOST_LIB" ..
+CC=icc CXX=icpc cmake -DCMAKE_PREFIX_PATH=~/packages/release/lib -DCMAKE_INSTALL_PREFIX=~/packages/release -DCMAKE_INSTALL_RPATH="`echo ~`/packages/release/lib;$TACC_BOOST_LIB;$TACC_NETCDF_LIB" ..
 
 # Build
 make
