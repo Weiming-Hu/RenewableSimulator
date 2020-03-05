@@ -1,24 +1,39 @@
-# A Weather-Coupled Renewable Energy Simulator
+# Evergreen: A Renewable Energy Simulator
 
 ## Introduction
 
-The renewable simulator is implemented with [the System Advisory Model (SAM)](https://sam.nrel.gov/). SAM is a performance and financial model designed to facilitate decision making for people involved in the renewable energy industry.
+`evergreen` is implemented with [the System Advisory Model (SAM)](https://sam.nrel.gov/). SAM is a performance and financial model designed to facilitate decision making for people involved in the renewable energy industry.
 
-This simulator focuses on solar photovoltaic power and wind power simulation. It uses weather predictions from [the Analog Ensemble package](https://weiming-hu.github.io/AnalogsEnsemble/) and prepare the data so that they can be fed into SAM functions. It also provides functions to view the different model available in SAM and their requirements.
+This simulator focuses on solar photovoltaic power and wind power simulation. It uses ensemble weather predictions from [the Analog Ensemble package](https://weiming-hu.github.io/AnalogsEnsemble/).
 
 ## Installation
 
-Please clone or download the repository. The program has the following requirements:
-
-- Python 2.7
-- Python package `netCDF4`
-
-After checking the requirements, run the following check commands in a terminal:
+The following script walks you through the steps of installing `evergreen`.
 
 ```
-$ python runme.py 
-[pvwattsv5] Annual ennergy: 6791.42236328
-[pvwattsv5_1ts] AC power: 39.2786483765; DC power: 67.7225570679
+# If you are on a cluster, load the dependencies.
+# This is tested on XSEDE Stampede2
+#
+module load boost
+
+# Download the latest version of source files
+wget https://github.com/Weiming-Hu/RenewableSimulator/archive/master.zip
+
+# Extract contents
+unzip master.zip
+
+# Carry an out-of-tree build
+cd RenewableSimulator-master/
+mkdir build && cd build
+
+# Note that the CMAKE_PREFIX_PATH is where the AnEn and AnEnIO libraries are
+CC=icc CXX=icpc cmake -DCMAKE_PREFIX_PATH=~/packages/release/lib -DCMAKE_INSTALL_PREFIX=~/packages/release -DCMAKE_INSTALL_RPATH="`echo ~`/packages/release/lib;$TACC_BOOST_LIB" ..
+
+# Build
+make
+
+# Install
+make install
 ```
 
 ## Feedbacks
