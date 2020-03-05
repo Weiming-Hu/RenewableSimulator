@@ -40,19 +40,25 @@ macro(add_ssc_library)
 
     # These are required files
     set(SSC_INCLUDE_FILE "${CMAKE_SOURCE_DIR}/ssc/sscapi.h")
-    set(SSC_LIB_FILE "${CMAKE_SOURCE_DIR}/ssc/ssc.so")
+    set(SSC_LIB_FILE_BUILD "${CMAKE_SOURCE_DIR}/ssc/libssc.so")
+    set(SSC_LIB_FILE_INSTALL "lib/libssc.so")
 
     message(STATUS "Use pre-built SSC library")
 
     # Add target
-    add_library(ssc SHARED IMPORTED)
+    add_library(ssc INTERFACE IMPORTED)
 
     set_target_properties(ssc PROPERTIES
         INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/ssc"
-        IMPORTED_LOCATION ${SSC_LIB_FILE}
         PUBLIC_HEADER ${SSC_INCLUDE_FILE})
 
+    target_link_libraries(ssc INTERFACE
+        $<BUILD_INTERFACE:${SSC_LIB_FILE_BUILD}>
+        $<INSTALL_INTERFACE:${SSC_LIB_FILE_INSTALL}>)
+
     target_link_libraries(ssc INTERFACE dl)
+
+    install(FILES ${SSC_LIB_FILE_BUILD} DESTINATION lib)
 
 endmacro(add_ssc_library)
 
