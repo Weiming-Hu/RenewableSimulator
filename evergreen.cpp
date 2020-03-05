@@ -18,11 +18,16 @@
 
 #include "Ncdf.h"
 #include "sscapi.h"
+#include "Functions.h"
 #include "AnEnReadNcdf.h"
 #include "Array4DPointer.h"
 
+#include "boost/program_options.hpp"
+#include "boost/filesystem.hpp"
+
 using namespace std;
 using namespace netCDF;
+using namespace boost::program_options;
 
 static const int _NUM_HOURS = 24;
 static const int _NUM_DAYS = 365;
@@ -67,14 +72,13 @@ countScenarios(const Scenarios & map) {
 }
 
 void
-run_pvwattsv5(const string & file_path, string output_var = "ac",
-        Verbose verbose = Verbose::Progress) {
+run_pvwattsv5(const string & file_path, string output_var, Verbose verbose) {
 
     /*
      * Set up configuration schemes
      */
     
-    if (verbose >= Verbose::Progress) cout << "Setting up simulation ..." << endl;
+    if (verbose >= Verbose::Progress) cout << "Setting up pvwattsv5 simulation ..." << endl;
 
     // Define our batches of scenarios to simulate.
     // Scenarios will be created using permutation of all keys.
@@ -221,6 +225,7 @@ run_pvwattsv5(const string & file_path, string output_var = "ac",
                 /*
                  * Run simulation
                  */
+                // TODO: disable model standard output
                 if (ssc_module_exec(module, data_container) == 0) {
                     ssc_module_free(module);
                     ssc_data_free(data_container);
@@ -276,18 +281,44 @@ run_pvwattsv5(const string & file_path, string output_var = "ac",
          */
         ssc_module_free(module);
         ssc_data_free(data_container);
-        if (verbose >= Verbose::Progress) cout << "Simulations complete!" << endl;
 
     } // End of loop for scenarios
 
+    if (verbose >= Verbose::Progress) cout << "Simulations complete!" << endl;
     return;
 }
 
-int main() {
-    cout << "evergreen -- our pursuit for a more sustainable future" << endl;
+int main(int argc, char** argv) {
 
-    string file_path("/home/graduate/wuh20/storage/data/NAM/anen_results.nc");
-    run_pvwattsv5(file_path);
+    // Define variables that should be set from command line arguments
+    string file_path, out_var;
+    Verbose verbose;
+    int verbose_int;
+    
+    // Define available options
+    options_description desc("Available options");
+    desc.add_options()
+            ("help,h", "Print help information for options")
+            ("anen", value<string>(&file_path)->required(), "The NetCDF file for analogs")
+            ("output-var", value<string>(&out_var)->default_value("ac"), "The simulation variable to output from SSC")
+            ("verbose, v", value<int>(&verbose_int)->default_value(2), "The verbose level (0 - 4)");
+    
+    // Parse the command line arguments
+    variables_map vm;
+    store(parse_command_line(argc, argv, desc), vm);
+    
+    if (vm.count("help") || argc == 1) {
+        cout << desc << endl;
+        return 0;
+    }
+    
+    notify(vm);
+
+    // Convert verbose
+    verbose = Functions::itov(verbose_int);
+    if (verbose >= Verbose::Progress) cout << "evergreen -- our pursuit for a more sustainable future" << endl;
+
+    run_pvwattsv5(file_path, out_var, verbose);
 
     return 0;
 }

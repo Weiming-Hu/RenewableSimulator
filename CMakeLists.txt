@@ -44,7 +44,7 @@ add_ssc()
 
 # Add library AnEnIO
 find_package(OpenMP)
-find_package(Boost 1.58.0 REQUIRED COMPONENTS date_time serialization regex date_time filesystem)
+find_package(Boost 1.58.0 REQUIRED COMPONENTS date_time serialization regex date_time program_options filesystem)
 find_package(AnEn REQUIRED)
 find_package(AnEnIO REQUIRED)
 
@@ -53,8 +53,8 @@ add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen.cpp)
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ssc)
-target_link_libraries(${PROJECT_NAME} PUBLIC AnEnIO::AnEnIO)
+target_link_libraries(${PROJECT_NAME} PRIVATE ssc)
+target_link_libraries(${PROJECT_NAME} PRIVATE AnEnIO::AnEnIO Boost::program_options)
 
 # Export the executable
 install(TARGETS ${PROJECT_NAME}
