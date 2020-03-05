@@ -14,7 +14,7 @@ The following script walks you through the steps of installing `evergreen`.
 # If you are on a cluster, load the dependencies.
 # This is tested on XSEDE Stampede2
 #
-module load boost
+module load boost netcdf
 
 # Download the latest version of source files
 wget https://github.com/Weiming-Hu/RenewableSimulator/archive/master.zip
