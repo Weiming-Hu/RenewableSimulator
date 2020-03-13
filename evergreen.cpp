@@ -26,7 +26,8 @@ void test_pvwattsv5() {
     fill(tdry, tdry + _NUM_TIMES, 27);
     fill(wspd, wspd + _NUM_TIMES, 4);
     
-    dn[5] = NAN;
+    dn[28] = NAN;
+//    tdry[3] = NAN;
     
     /*
      * Create weather data table
