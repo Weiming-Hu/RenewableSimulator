@@ -47,8 +47,9 @@ macro(add_ssc_library)
         message(FATAL_ERROR "Currently only compiled librares for Linux and OSX have been uploaded")
     endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
-    set(SSC_INCLUDE_FILE "${CMAKE_SOURCE_DIR}/ssc/sscapi.h")
-    set(SSC_LIB_FILE_BUILD "${CMAKE_SOURCE_DIR}/ssc/${SSC_LIB_FILENAME}")
+    set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ssc")
+    set(SSC_INCLUDE_FILE "${LIB_DIR}/sscapi.h")
+    set(SSC_LIB_FILE_BUILD "${LIB_DIR}/${SSC_LIB_FILENAME}")
     set(SSC_LIB_FILE_INSTALL "lib/${SSC_LIB_FILENAME}")
 
     message(STATUS "Pre-built SSC library: ${SSC_LIB_FILE_BUILD}")
@@ -58,7 +59,7 @@ macro(add_ssc_library)
     add_library(ssc INTERFACE IMPORTED)
 
     set_target_properties(ssc PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/ssc"
+        INTERFACE_INCLUDE_DIRECTORIES ${LIB_DIR}
         PUBLIC_HEADER ${SSC_INCLUDE_FILE})
 
     target_link_libraries(ssc INTERFACE
