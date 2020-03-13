@@ -59,7 +59,10 @@ find_package(AnEn REQUIRED)
 find_package(AnEnIO REQUIRED)
 
 # Create target
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen.cpp)
+add_executable(${PROJECT_NAME}
+    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/AnEnContainer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Scenarios.cpp)
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 
