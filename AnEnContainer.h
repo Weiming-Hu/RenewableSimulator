@@ -17,6 +17,7 @@
 #include "Stations.h"
 #include "Array4DPointer.h"
 
+using ArrayMap = std::map<std::string, Array4DPointer>;
 
 class AnEnContainer {
 public:
@@ -25,20 +26,17 @@ public:
     AnEnContainer(const std::string & file_path);
     virtual ~AnEnContainer() = default;
     
-    ssc_number_t getTimezone(std::size_t station_index);
+    ssc_number_t getTimezone(std::size_t station_index) const;
     
-    void subset(std::map<std::string, Array4DPointer> & ptr_map_subset,
-            std::size_t & station_i, std::size_t & flt_i, std::size_t & analog_i) const;
+    void subset(ArrayMap & ptr_map_subset, std::size_t & station_i, std::size_t & flt_i, std::size_t & analog_i) const;
     
-    static void set(const std::map<std::string, Array4DPointer> & ptr_map,
-            ssc_data_t & data_container);
+    static void set(const ArrayMap & ptr_map, ssc_data_t & data_container, const std::string & name = "solar_resource_data");
     
 private:
     Stations stations_;
     Times times_;
     Times flts_;
-    
-    std::map<std::string, Array4DPointer> ptr_map_;
+    ArrayMap ptr_map_;
     
     /**
      * This is a very simple function to calculate the time offset from GMT in hours.
@@ -49,7 +47,7 @@ private:
      * @param lon A longitude.
      * @return The time offset in hours from GMT
      */
-    ssc_number_t simpleOffset_(double lon);
+    ssc_number_t simpleOffset_(double lon) const;
     
 };
 

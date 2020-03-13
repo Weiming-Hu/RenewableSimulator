@@ -14,7 +14,6 @@
 #include <stdexcept>
 #include <numeric>
 #include <iomanip>
-#include <cmath>
 
 
 #include "Ncdf.h"
@@ -30,101 +29,6 @@ using namespace std;
 using namespace netCDF;
 using namespace boost::program_options;
 
-static const int _NUM_HOURS = 24;
-static const int _NUM_DAYS = 365;
-static const int _NUM_TIMES = _NUM_DAYS * _NUM_HOURS;
-//
-//
-//int
-//simpleTimeZone(double lon) {
-//    return round(lon * 24 / 360);
-//}
-//
-///**
-// * Extract a certain scenario from the predefined scenarios. The scenario is
-// * a combination of different configurations in the predefined scenarios. The
-// * index is the scenario index. You should use countScenarios first to see
-// * the total number of scenarios available to extract.
-// * 
-// * @param scenario A Scenario. It is essentially a string-number STL map
-// * @param scenarios A Scenarios. It is essentially a string-vector STL map
-// * @param index The scenario ID to extract. You can use countScenarios
-// * to get the total number of scenarios available.
-// */
-//void
-//getScenario(Scenario & scenario, const Scenarios & scenarios, size_t index) {
-//
-//    // Clear map
-//    scenario.clear();
-//
-//    // Initialize values
-//    size_t accum_len = 1;
-//    size_t current_index;
-//
-//    for (auto e : scenarios) {
-//
-//        // Calculate the current index for this key based on the global index
-//        if (accum_len == 1) {
-//            accum_len = e.second.size();
-//            current_index = fmod(index, accum_len);
-//        } else {
-//            current_index = fmod(index / accum_len, e.second.size());
-//            accum_len *= e.second.size();
-//        }
-//
-//        // Insert pair
-//        scenario.insert(make_pair(e.first, e.second[current_index]));
-//    }
-//
-//    return;
-//}
-//
-//size_t
-//countScenarios(const Scenarios & map) {
-//    size_t total = 1;
-//    for (auto e : map) total *= e.second.size();
-//    return total;
-//}
-//
-//class AnEnContainer {
-//    
-////    Times times;
-////    Stations stations;
-////    Array4DPointer dn_arr, df_arr, t_arr, wspd_arr;
-////    AnEnReadNcdf anen_read(verbose);
-////    
-////    // Variable names are hard coded
-////    NcFile nc(file_path, NcFile::FileMode::read);
-////    anen_read.read(nc, times, "test_times");
-////    anen_read.read(nc, stations);
-////    
-////    anen_read.readAnalogs(file_path, dn_arr, "DownwardShortwaveRadiation");
-////    anen_read.readAnalogs(file_path, df_arr, "UpwardShortwaveRadiation");
-////    anen_read.readAnalogs(file_path, t_arr, "temperature_2m");
-////    anen_read.readAnalogs(file_path, wspd_arr, "wspd_1000hPa");
-////    
-////    // Sanity checks
-////    if (stations.size() != dn_arr.shape()[0]) throw runtime_error("Stations do not match the array shape");
-////    if (times.size() != dn_arr.shape()[1]) throw runtime_error("Times do not match the array shape");
-////    
-////    // The time span of analogs should not be longer than a year
-////    double first_time = times.getTime(0).timestamp;
-////    double last_time = times.getTime(times.size() - 1).timestamp;
-////    if (last_time - first_time > 365 * )
-////    
-////    /*
-////     * Input alignment
-////     * 
-////     * NREL SAM simulator requires hourly data for the entire year. We need to align
-////     * input analogs with the year-round hourly time series.
-////     */
-////    if (times.size() == _NUM_TIMES) {
-////        // This is the ideal case. I don't need to align the values
-////    } else {
-////        // There are probably missing days in the input analogs.
-////        // I need to create a 
-////    }
-//};
 //
 //
 //void
@@ -326,11 +230,6 @@ static const int _NUM_TIMES = _NUM_DAYS * _NUM_HOURS;
 //            throw runtime_error("could not create pvwattsv5 module");
 //        }
 //
-//        // Set fixed configuration
-//        for (auto element : config_fixed) {
-//            ssc_data_set_number(data_container, element.first.c_str(), element.second);
-//        }
-//
 //        // Get the current scenario
 //        getScenario(config_scenario, config_scenarios, scenario_i);
 //
@@ -447,7 +346,7 @@ static const int _NUM_TIMES = _NUM_DAYS * _NUM_HOURS;
 //    return;
 //}
 //
-//int main(int argc, char** argv) {
+int main(int argc, char** argv) {
 //
 //    // Define variables that should be set from command line arguments
 //    string file_path, out_var;
@@ -478,10 +377,6 @@ static const int _NUM_TIMES = _NUM_DAYS * _NUM_HOURS;
 //    if (verbose >= Verbose::Progress) cout << "evergreen -- our pursuit for a more sustainable future" << endl;
 //
 //    run_pvwattsv5(file_path, out_var, verbose);
-//
-//    return 0;
-//}
 
-int main() {
     return 0;
 }
