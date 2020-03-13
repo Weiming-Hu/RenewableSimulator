@@ -20,46 +20,46 @@ AnEnContainer::AnEnContainer(const string & file_path) {
     
     
 
-    Times times;
-    Stations stations;
-    Array4DPointer dn_arr, df_arr, t_arr, wspd_arr;
-    AnEnReadNcdf anen_read(verbose);
-
-    // Variable names are hard coded
-    NcFile nc(file_path, NcFile::FileMode::read);
-    anen_read.read(nc, times, "test_times");
-    anen_read.read(nc, stations);
-
-    anen_read.readAnalogs(file_path, dn_arr, "DownwardShortwaveRadiation");
-    anen_read.readAnalogs(file_path, df_arr, "UpwardShortwaveRadiation");
-    anen_read.readAnalogs(file_path, t_arr, "temperature_2m");
-    anen_read.readAnalogs(file_path, wspd_arr, "wspd_1000hPa");
-
-    // Sanity checks
-    if (stations.size() != dn_arr.shape()[0]) throw runtime_error("Stations do not match the array shape");
-    if (times.size() != dn_arr.shape()[1]) throw runtime_error("Times do not match the array shape");
-
-    // The time span of analogs should not be longer than a year
-    double first_time = times.getTime(0).timestamp;
-    double last_time = times.getTime(times.size() - 1).timestamp;
-    if (last_time - first_time > 365 *)
-
-        /*
-         * Input alignment
-         * 
-         * NREL SAM simulator requires hourly data for the entire year. We need to align
-         * input analogs with the year-round hourly time series.
-         */
-        if (times.size() == _NUM_TIMES) {
-            // This is the ideal case. I don't need to align the values
-        } else {
-            // There are probably missing days in the input analogs.
-            // I need to create a 
-        }
-    
-    
-    // TODO: Don't forget to shift longitudes
-    throw runtime_error("not implemented yet");
+//    Times times;
+//    Stations stations;
+//    Array4DPointer dn_arr, df_arr, t_arr, wspd_arr;
+//    AnEnReadNcdf anen_read(verbose);
+//
+//    // Variable names are hard coded
+//    NcFile nc(file_path, NcFile::FileMode::read);
+//    anen_read.read(nc, times, "test_times");
+//    anen_read.read(nc, stations);
+//
+//    anen_read.readAnalogs(file_path, dn_arr, "DownwardShortwaveRadiation");
+//    anen_read.readAnalogs(file_path, df_arr, "UpwardShortwaveRadiation");
+//    anen_read.readAnalogs(file_path, t_arr, "temperature_2m");
+//    anen_read.readAnalogs(file_path, wspd_arr, "wspd_1000hPa");
+//
+//    // Sanity checks
+//    if (stations.size() != dn_arr.shape()[0]) throw runtime_error("Stations do not match the array shape");
+//    if (times.size() != dn_arr.shape()[1]) throw runtime_error("Times do not match the array shape");
+//
+//    // The time span of analogs should not be longer than a year
+//    double first_time = times.getTime(0).timestamp;
+//    double last_time = times.getTime(times.size() - 1).timestamp;
+//    if (last_time - first_time > 365 *)
+//
+//        /*
+//         * Input alignment
+//         * 
+//         * NREL SAM simulator requires hourly data for the entire year. We need to align
+//         * input analogs with the year-round hourly time series.
+//         */
+//        if (times.size() == _NUM_TIMES) {
+//            // This is the ideal case. I don't need to align the values
+//        } else {
+//            // There are probably missing days in the input analogs.
+//            // I need to create a 
+//        }
+//    
+//    
+//    // TODO: Don't forget to shift longitudes
+//    throw runtime_error("not implemented yet");
 }
 
 ssc_number_t
