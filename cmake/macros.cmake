@@ -39,11 +39,20 @@ endmacro(add_ssc)
 macro(add_ssc_library)
 
     # These are required files
-    set(SSC_INCLUDE_FILE "${CMAKE_SOURCE_DIR}/ssc/sscapi.h")
-    set(SSC_LIB_FILE_BUILD "${CMAKE_SOURCE_DIR}/ssc/libssc.so")
-    set(SSC_LIB_FILE_INSTALL "lib/libssc.so")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(SSC_LIB_FILENAME "libssc.so")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(SSC_LIB_FILENAME "libssc.dylib")
+    else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "Currently only compiled librares for Linux and OSX have been uploaded")
+    endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 
-    message(STATUS "Use pre-built SSC library")
+    set(SSC_INCLUDE_FILE "${CMAKE_SOURCE_DIR}/ssc/sscapi.h")
+    set(SSC_LIB_FILE_BUILD "${CMAKE_SOURCE_DIR}/ssc/${SSC_LIB_FILENAME}")
+    set(SSC_LIB_FILE_INSTALL "lib/${SSC_LIB_FILENAME}")
+
+    message(STATUS "Pre-built SSC library: ${SSC_LIB_FILE_BUILD}")
+    message(STATUS "SSC inlude header file: ${SSC_INCLUDE_FILE}")
 
     # Add target
     add_library(ssc INTERFACE IMPORTED)
