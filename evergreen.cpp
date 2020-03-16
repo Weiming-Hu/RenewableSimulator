@@ -19,10 +19,11 @@ void test_pvwattsv5() {
     /*
      * Prepare array data
      */
-    ssc_number_t dn[_NUM_TIMES], df[_NUM_TIMES], tdry[_NUM_TIMES], wspd[_NUM_TIMES];
+    ssc_number_t dn[_NUM_TIMES], df[_NUM_TIMES], tdry[_NUM_TIMES], wspd[_NUM_TIMES], gh[_NUM_TIMES];
     
-    fill(dn, dn + _NUM_TIMES, 3.5);
-    fill(df, df + _NUM_TIMES, 23);
+    fill(gh, gh + _NUM_TIMES, 60);
+    fill(dn, dn + _NUM_TIMES, 35);
+    fill(df, df + _NUM_TIMES, 5);
     fill(tdry, tdry + _NUM_TIMES, 27);
     fill(wspd, wspd + _NUM_TIMES, 4);
     
@@ -35,13 +36,13 @@ void test_pvwattsv5() {
     ssc_data_t weather_table = ssc_data_create();
     
     // Assign data arrays to the table
-    ssc_data_set_array(weather_table, "dn", dn, _NUM_TIMES);
-    ssc_data_set_array(weather_table, "df", df, _NUM_TIMES);
+    //ssc_data_set_array(weather_table, "df", df, _NUM_TIMES);
+    ssc_data_set_array(weather_table, "gh", gh, _NUM_TIMES);
     ssc_data_set_array(weather_table, "tdry", tdry, _NUM_TIMES);
     ssc_data_set_array(weather_table, "wspd", wspd, _NUM_TIMES);
     
     ssc_data_set_number(weather_table, "lat", 40);
-    ssc_data_set_number(weather_table, "lon", 70);
+    ssc_data_set_number(weather_table, "lon", -70);
     ssc_data_set_number(weather_table, "tz", -8);
 
     
@@ -53,8 +54,8 @@ void test_pvwattsv5() {
     ssc_data_set_number(data_container, "system_capacity", 1);
     ssc_data_set_number(data_container, "losses", 0);
     ssc_data_set_number(data_container, "array_type", 0);
-    ssc_data_set_number(data_container, "tilt", 20);
-    ssc_data_set_number(data_container, "azimuth", 180);
+    ssc_data_set_number(data_container, "tilt", 0);
+    ssc_data_set_number(data_container, "azimuth", 100);
     ssc_data_set_number(data_container, "adjust:constant", 0);
 
     // Weather table is the different one from others
