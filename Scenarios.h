@@ -43,7 +43,10 @@ public:
     size_t totalScenarios() const;    
     
     /**
-     * Set the data container using the scenario index in from scenarios
+     * Set the data container using the scenario corresponding to the scenario index.
+     * Usually, it is preferred to use the function totalScenarios to check how many
+     * scenarios are defined within this object.
+     *
      * @param data_container
      * @param index
      */
