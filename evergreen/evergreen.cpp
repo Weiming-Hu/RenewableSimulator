@@ -99,7 +99,7 @@ void run_pvwatts() {
     for (size_t scenario_i = 0; scenario_i < num_scenarios; ++scenario_i) {
 
         // Set the current scenario
-        config_fixed.set(ssc_container)
+        config_fixed.set(ssc_container);
         config_scenarios.set(ssc_container, scenario_i);
 
         // Looping through all stations, days, and lead times.
