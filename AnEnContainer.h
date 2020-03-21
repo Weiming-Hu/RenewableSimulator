@@ -26,17 +26,35 @@ public:
     AnEnContainer(const std::string & file_path);
     virtual ~AnEnContainer() = default;
     
-    ssc_number_t getTimezone(std::size_t station_index) const;
+    const Stations & stations() const;
+    const Times & times() const;
+    const Times & flts() const;
+    std::size_t num_analogs() const;
     
+    /**
+     * Sets the lat/lon/timezone attributes of in the data container using
+     * the location from the specified station.
+     * @param data_container The SSC data container to set
+     * @param station_index The station index
+     */
+    void setStation(ssc_data_t & data_container, std::size_t station_index) const;
+    
+    
+    
+    
+    
+    ssc_number_t getTimezone(std::size_t station_index) const;
+
     void subset(ArrayMap & ptr_map_subset, std::size_t & station_i, std::size_t & flt_i, std::size_t & analog_i) const;
     
     static void set(const ArrayMap & ptr_map, ssc_data_t & data_container, const std::string & name = "solar_resource_data");
     
 private:
+    ArrayMap array_map_;
+
     Stations stations_;
     Times times_;
     Times flts_;
-    ArrayMap ptr_map_;
     
     /**
      * This is a very simple function to calculate the time offset from GMT in hours.

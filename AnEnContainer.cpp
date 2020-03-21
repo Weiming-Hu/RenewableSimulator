@@ -18,7 +18,7 @@ static const int _NUM_TIMES = _NUM_DAYS * _NUM_HOURS;
 
 AnEnContainer::AnEnContainer(const string & file_path) {
     
-    
+    cout << "Nothing has been done" << endl;
 
 //    Times times;
 //    Stations stations;
@@ -62,6 +62,28 @@ AnEnContainer::AnEnContainer(const string & file_path) {
 //    throw runtime_error("not implemented yet");
 }
 
+
+const Stations &
+AnEnContainer::stations() const {
+    return stations_;
+}
+
+const Times &
+AnEnContainer::times() const {
+    return times_;
+}
+
+const Times &
+AnEnContainer::flts() const {
+    return flts_;
+}
+
+size_t
+AnEnContainer::num_analogs() const {
+    if (array_map_.empty()) throw runtime_error("Array map is empty. No analog members are found.");
+    return array_map_.begin()->second.shape()[3];
+}
+
 ssc_number_t
 AnEnContainer::getTimezone(size_t station_index) const {
     if (stations_.size() - 1 < station_index) throw range_error("Invalid station index");
@@ -87,7 +109,7 @@ AnEnContainer::subset(map<string, Array4DPointer>& ptr_map_subset,
     iota(times_i.begin(), times_i.end(), 0);
 
     // Initialize the map
-    for (const auto & pair : ptr_map_) {
+    for (const auto & pair : array_map_) {
         
         // Subset array
         Array4DPointer arr_subset;
