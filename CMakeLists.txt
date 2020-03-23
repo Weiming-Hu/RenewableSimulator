@@ -39,6 +39,11 @@ endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 set(EXTRA_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH ${EXTRA_MODULE_PATH})
 
+# SSC is found from the current github repo and will be installed to the installation path,
+# so I need to add this directory to RPATH
+#
+list(APPEND CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+
 # Include our macros
 include("${EXTRA_MODULE_PATH}/macros.cmake")
 

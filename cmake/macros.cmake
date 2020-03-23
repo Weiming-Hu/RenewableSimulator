@@ -12,41 +12,24 @@
 # This macro imports a library soltrack
 macro(add_soltrack)
 
-    # These are required files
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set(SOLTRACK_LIB_FILENAME "libSolTrack.so")
-    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        set(SOLTRACK_LIB_FILENAME "libSolTrack.dylib")
-    else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        message(FATAL_ERROR "Currently only supports Linux and OSX")
-    endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-
-    set(SOLTRACK_ROOT "$ENV{HOME}/packages/release/" CACHE STRING "root directory for soltrack")
-
-    set(SOLTRACK_LIB_DIR "${SOLTRACK_ROOT}/lib")
-    set(SOLTRACK_INCLUDE_DIR "${SOLTRACK_ROOT}/include")
-    set(SOLTRACK_LIB_FILE "${SOLTRACK_LIB_DIR}/${SOLTRACK_LIB_FILENAME}")
-
-    if(NOT EXISTS ${SOLTRACK_LIB_FILE})
-        message(FATAL_ERROR "${SOLTRACK_LIB_FILE} is not found. \
-        Download and install SolTrack from http://soltrack.sourceforge.net/ and \
-        specify the installation root directory in SOLTRACK_ROOT")
-    endif(NOT EXISTS ${SOLTRACK_LIB_FILE})
-
-    if(NOT EXISTS ${SOLTRACK_INCLUDE_DIR})
-        message(FATAL_ERROR "${SOLTRACK_INCLUDE_DIR} is not found")
-    endif(NOT EXISTS ${SOLTRACK_INCLUDE_DIR})
+    set(SOLTRACK_LIB_FILENAME "libSolTrack.a")
+    set(SOLTRACK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/soltrack")
+    set(SOLTRACK_INCLUDE_FILE "${SOLTRACK_LIB_DIR}/SolTrack.h")
+    set(SOLTRACK_LIB_FILE_BUILD "${SOLTRACK_LIB_DIR}/${SOLTRACK_LIB_FILENAME}")
+    set(SOLTRACK_LIB_FILE_INSTALL "lib/${SOLTRACK_LIB_FILENAME}")
 
     # Add target
     add_library(soltrack INTERFACE IMPORTED)
 
     set_target_properties(soltrack PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES ${SOLTRACK_INCLUDE_DIR})
+        INTERFACE_INCLUDE_DIRECTORIES ${SOLTRACK_LIB_DIR}
+        PUBLIC_HEADER ${SOLTRACK_INCLUDE_FILE})
 
-    target_link_libraries(soltrack INTERFACE ${SOLTRACK_LIB_FILE})
+    target_link_libraries(soltrack INTERFACE
+        $<BUILD_INTERFACE:${SOLTRACK_LIB_FILE_BUILD}>
+        $<INSTALL_INTERFACE:${SOLTRACK_LIB_FILE_INSTALL}>)
 
-    # SolTrack is found from the CMAKE_PREFIX_PATH, so I need to add this directory to RPATH
-    list(APPEND CMAKE_INSTALL_RPATH ${CMAKE_PREFIX_PATH})
+    install(FILES ${SOLTRACK_LIB_FILE_BUILD} DESTINATION lib)
 
 endmacro(add_soltrack)
 
@@ -93,11 +76,6 @@ macro(add_ssc_library)
     set(SSC_INCLUDE_FILE "${LIB_DIR}/sscapi.h")
     set(SSC_LIB_FILE_BUILD "${LIB_DIR}/${SSC_LIB_FILENAME}")
     set(SSC_LIB_FILE_INSTALL "lib/${SSC_LIB_FILENAME}")
-
-    # SSC is found from the current github repo and will be installed to the installation path,
-    # so I need to add this directory to RPATH
-    #
-    list(APPEND CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 
     message(STATUS "Pre-built SSC library: ${SSC_LIB_FILE_BUILD}")
     message(STATUS "SSC inlude header file: ${SSC_INCLUDE_FILE}")

@@ -16,136 +16,148 @@
 #include <iomanip>
 #include <boost/program_options.hpp>
 
-#include "Scenarios.h"
-#include "Functions.h"
-#include "AnEnContainer.h"
+//#include "Scenarios.h"
+//#include "Functions.h"
+//#include "AnEnContainer.h"
+
+// SolTrack structs conflict with classes in AnEn. So I'm creating a 
+// dedicated names pace for SolTrack. I'm also specifying the C linkage
+// for all functions in SolTrack because it is a C library.
+//
+namespace SolTrack {
+    extern "C" {
+#include "SolTrack.h"
+    }
+}
+
+
 
 using namespace std;
-using namespace boost::program_options;
+//using namespace boost::program_options;
 
-void run_pvwatts() {
-
-    // TODO: These are input
-    Verbose verbose = Verbose::Progress;
-    string file_path = "This is input";
-
-    /*
-     * Set up scenarios to simulate
-     */
-    if (verbose >= Verbose::Progress) cout << "Setting up simulation scenarios ..." << endl;
-
-    // Define our batches of scenarios to simulate.
-    // Scenarios will be created using permutation of all keys.
-    //
-    Scenarios config_scenarios;
-
-    config_scenarios["losses"] = {0, 0.2};
-    config_scenarios["azimuth"] = {0};
-    config_scenarios["system_capacity"] = {0.8};
-    config_scenarios["tilt"] = {10};
-
-    // Define our fixed configuration
-    Scenario config_fixed;
-
-    config_fixed["array_type"] = 0;
-    config_fixed["adjust:constant"] = 0;
-    config_fixed["verbose"] = 0;
-
-
-    /*
-     * Read analog input
-     */
-    AnEnContainer anen_input(file_path);
-    
-    size_t num_stations = anen_input.stations().size();
-    size_t num_days = anen_input.times().size();
-    size_t num_flts = anen_input.flts().size();
-    size_t num_analogs = anen_input.num_analogs();
-
-    
-    /*
-     * Initialize data container and modules
-     */
-    ssc_data_t ssc_container = ssc_data_create();
-    ssc_module_t irradproc = ssc_module_create("irradproc");
-    ssc_module_t pvwatts = ssc_module_create("pvwattsv5_1ts");
-
-    // Return error if any modules were not created successfully
-    if (irradproc == NULL || pvwatts == NULL) {
-        ssc_data_free(ssc_container);
-        throw runtime_error("Failed to create all SSC modules");
-    }
-    
-    // Take care of no-provide attributes
-    ssc_number_t *skip_DHI = new ssc_number_t[num_analogs];
-    ssc_number_t *inout_tcell = new ssc_number_t[num_analogs];
-    ssc_number_t *inout_poa = new ssc_number_t[num_analogs];
-    
-    ssc_data_set_array(irradproc, "diffuse", skip_DHI, num_analogs);
-    ssc_data_set_array(pvwatts, "tcell", inout_tcell, num_analogs);
-    ssc_data_set_array(pvwatts, "poa", inout_poa, num_analogs);
-    
-    
-    /*
-     * Run batch simulations
-     */
-    size_t num_scenarios = config_scenarios.totalScenarios();
-    
-    if (verbose >= Verbose::Progress) cout
-            << "There are in total " << num_scenarios << " scenarios, "
-            << num_stations << " stations, " << num_days << " days, " 
-            << num_flts << " lead times to simulate." << endl;
-    
-    for (size_t scenario_i = 0; scenario_i < num_scenarios; ++scenario_i) {
-
-        // Set the current scenario
-        config_fixed.set(ssc_container);
-        config_scenarios.set(ssc_container, scenario_i);
-
-        // Looping through all stations, days, and lead times.
-        // Each iteration simulates all members at once.
-        //
-        for (size_t station_i = 0; station_i < num_stations; ++station_i) {
-            
-            // Set location based attributes
-            
-            
-            for (size_t day_i = 0; day_i < num_days; ++day_i) {
-                for (size_t flt_i = 0; flt_i < num_flts; ++flt_i) {
-
-                    
-                    /*
-                     * Step 1: Reindl et al. decomposition from GHI to DHI
-                     */
-                    
-                    
-                    /*
-                     * Step 2: irradproc module from GHI and DHI to DNI
-                     */
-                    
-                    
-                    /*
-                     * Step 3: PV power output simulation from DHI and DNI
-                     */
-                    
-                } // End loop for lead times
-            } // End loop for days
-        } // End loop for stations
-
-//        writeAnalogs();
-//        writeScenarios();
-    }
-
-    ssc_module_free(pvwatts);
-    ssc_module_free(irradproc);
-    ssc_data_free(ssc_container);
-    
-    delete [] skip_DHI;
-    delete [] inout_poa;
-    delete [] inout_tcell;
-    
-    return;
-}
+//void run_pvwatts() {
+//
+//    // TODO: These are input
+//    Verbose verbose = Verbose::Progress;
+//    string file_path = "This is input";
+//
+//    /*
+//     * Set up scenarios to simulate
+//     */
+//    if (verbose >= Verbose::Progress) cout << "Setting up simulation scenarios ..." << endl;
+//
+//    // Define our batches of scenarios to simulate.
+//    // Scenarios will be created using permutation of all keys.
+//    //
+//    Scenarios config_scenarios;
+//
+//    config_scenarios["losses"] = {0, 0.2};
+//    config_scenarios["azimuth"] = {0};
+//    config_scenarios["system_capacity"] = {0.8};
+//    config_scenarios["tilt"] = {10};
+//
+//    // Define our fixed configuration
+//    Scenario config_fixed;
+//
+//    config_fixed["array_type"] = 0;
+//    config_fixed["adjust:constant"] = 0;
+//    config_fixed["verbose"] = 0;
+//
+//
+//    /*
+//     * Read analog input
+//     */
+//    AnEnContainer anen_input(file_path);
+//    
+//    size_t num_stations = anen_input.stations().size();
+//    size_t num_days = anen_input.times().size();
+//    size_t num_flts = anen_input.flts().size();
+//    size_t num_analogs = anen_input.num_analogs();
+//
+//    
+//    /*
+//     * Initialize data container and modules
+//     */
+//    ssc_data_t ssc_container = ssc_data_create();
+//    ssc_module_t irradproc = ssc_module_create("irradproc");
+//    ssc_module_t pvwatts = ssc_module_create("pvwattsv5_1ts");
+//
+//    // Return error if any modules were not created successfully
+//    if (irradproc == NULL || pvwatts == NULL) {
+//        ssc_data_free(ssc_container);
+//        throw runtime_error("Failed to create all SSC modules");
+//    }
+//    
+//    // Take care of no-provide attributes
+//    ssc_number_t *skip_DHI = new ssc_number_t[num_analogs];
+//    ssc_number_t *inout_tcell = new ssc_number_t[num_analogs];
+//    ssc_number_t *inout_poa = new ssc_number_t[num_analogs];
+//    
+//    ssc_data_set_array(irradproc, "diffuse", skip_DHI, num_analogs);
+//    ssc_data_set_array(pvwatts, "tcell", inout_tcell, num_analogs);
+//    ssc_data_set_array(pvwatts, "poa", inout_poa, num_analogs);
+//    
+//    
+//    /*
+//     * Run batch simulations
+//     */
+//    size_t num_scenarios = config_scenarios.totalScenarios();
+//    
+//    if (verbose >= Verbose::Progress) cout
+//            << "There are in total " << num_scenarios << " scenarios, "
+//            << num_stations << " stations, " << num_days << " days, " 
+//            << num_flts << " lead times to simulate." << endl;
+//    
+//    for (size_t scenario_i = 0; scenario_i < num_scenarios; ++scenario_i) {
+//
+//        // Set the current scenario
+//        config_fixed.set(ssc_container);
+//        config_scenarios.set(ssc_container, scenario_i);
+//
+//        // Looping through all stations, days, and lead times.
+//        // Each iteration simulates all members at once.
+//        //
+//        for (size_t station_i = 0; station_i < num_stations; ++station_i) {
+//            
+//            // Set location based attributes
+//            
+//            
+//            for (size_t day_i = 0; day_i < num_days; ++day_i) {
+//                for (size_t flt_i = 0; flt_i < num_flts; ++flt_i) {
+//
+//                    
+//                    /*
+//                     * Step 1: Reindl et al. decomposition from GHI to DHI
+//                     */
+//                    
+//                    
+//                    /*
+//                     * Step 2: irradproc module from GHI and DHI to DNI
+//                     */
+//                    
+//                    
+//                    /*
+//                     * Step 3: PV power output simulation from DHI and DNI
+//                     */
+//                    
+//                } // End loop for lead times
+//            } // End loop for days
+//        } // End loop for stations
+//
+////        writeAnalogs();
+////        writeScenarios();
+//    }
+//
+//    ssc_module_free(pvwatts);
+//    ssc_module_free(irradproc);
+//    ssc_data_free(ssc_container);
+//    
+//    delete [] skip_DHI;
+//    delete [] inout_poa;
+//    delete [] inout_tcell;
+//    
+//    return;
+//}
 
 
 
@@ -379,41 +391,74 @@ void run_pvwatts() {
 
 int main(int argc, char** argv) {
 
-    // Define variables that should be set from command line arguments
-    string file_path, out_var;
-    Verbose verbose;
-    int verbose_int;
+    int use_degrees = 1;
+    int use_north_equals_zero = 1;
+    int compute_refr_equatorial = 0;
+    int compute_distance = 0;
 
-    // Define a welcoming message
-    stringstream msg;
-    msg << "evergreen -- our pursuit of a more sustainable future" << endl
-            << "Developed by Weiming Hu [weiming-hu.github.io]" << endl
-            << "Issues @ https://github.com/Weiming-Hu/RenewableSimulator/issues";
+    SolTrack::Time time;
+    SolTrack::Location location;
+    SolTrack::Position position;
 
-    // Define available options
-    options_description desc("Available options");
-    desc.add_options()
-            ("help,h", "Print help information for options")
-            ("anen", value<string>(&file_path)->required(), "The NetCDF file for analogs")
-            //            ("output-var", value<string>(&out_var)->default_value("ac"), "The simulation variable to output from SSC")
-            ("verbose,v", value<int>(&verbose_int)->default_value(2), "The verbose level (0 - 4)");
+    location.longitude = -105;
+    location.latitude = 40;
 
-    // Parse the command line arguments
-    variables_map vm;
-    store(parse_command_line(argc, argv, desc), vm);
+    time.year = 2020;
+    time.month = 3;
+    time.day = 23;
+    time.hour = 10;
+    time.minute = 40;
+    time.second = 44;
 
-    if (vm.count("help") || argc == 1) {
-        cout << msg.str() << endl << endl << desc << endl;
-        return 0;
-    }
+    SolTrack::SolTrack(time, location, &position, use_degrees,
+            use_north_equals_zero, compute_refr_equatorial, compute_distance);
 
-    notify(vm);
-
-    // Convert verbose
-    verbose = Functions::itov(verbose_int);
-    if (verbose >= Verbose::Progress) cout << msg.str() << endl;
-
-    run_pvwatts();
+    cout << "altitude: " << position.altitude << endl
+            << "refractional altitude: " << position.altitudeRefract << endl
+            << "refractional azimuth: " << position.azimuthRefract << endl;
 
     return 0;
+
+
+
+
+
+
+    //    // Define variables that should be set from command line arguments
+    //    string file_path, out_var;
+    //    Verbose verbose;
+    //    int verbose_int;
+    //
+    //    // Define a welcoming message
+    //    stringstream msg;
+    //    msg << "evergreen -- our pursuit of a more sustainable future" << endl
+    //            << "Developed by Weiming Hu [weiming-hu.github.io]" << endl
+    //            << "Issues @ https://github.com/Weiming-Hu/RenewableSimulator/issues";
+    //
+    //    // Define available options
+    //    options_description desc("Available options");
+    //    desc.add_options()
+    //            ("help,h", "Print help information for options")
+    //            ("anen", value<string>(&file_path)->required(), "The NetCDF file for analogs")
+    //            //            ("output-var", value<string>(&out_var)->default_value("ac"), "The simulation variable to output from SSC")
+    //            ("verbose,v", value<int>(&verbose_int)->default_value(2), "The verbose level (0 - 4)");
+    //
+    //    // Parse the command line arguments
+    //    variables_map vm;
+    //    store(parse_command_line(argc, argv, desc), vm);
+    //
+    //    if (vm.count("help") || argc == 1) {
+    //        cout << msg.str() << endl << endl << desc << endl;
+    //        return 0;
+    //    }
+    //
+    //    notify(vm);
+    //
+    //    // Convert verbose
+    //    verbose = Functions::itov(verbose_int);
+    //    if (verbose >= Verbose::Progress) cout << msg.str() << endl;
+    //
+    //    run_pvwatts();
+    //
+    //    return 0;
 }
