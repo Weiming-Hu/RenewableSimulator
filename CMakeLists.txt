@@ -42,6 +42,9 @@ list(APPEND CMAKE_MODULE_PATH ${EXTRA_MODULE_PATH})
 # Include our macros
 include("${EXTRA_MODULE_PATH}/macros.cmake")
 
+# Add library soltrack
+add_soltrack()
+
 # Add library SSC
 add_ssc()
 
@@ -67,6 +70,7 @@ add_executable(${PROJECT_NAME}
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ssc)
+target_link_libraries(${PROJECT_NAME} PRIVATE soltrack)
 target_link_libraries(${PROJECT_NAME} PRIVATE AnEnIO::AnEnIO Boost::program_options)
 
 # Export the executable
