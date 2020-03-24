@@ -19,6 +19,8 @@ static const int _NUM_TIMES = _NUM_DAYS * _NUM_HOURS;
 AnEnContainer::AnEnContainer(const string & file_path) {
     
     cout << "Nothing has been done" << endl;
+    
+    // TODO : Check longitude range and shift them when needed.
 
 //    Times times;
 //    Stations stations;
@@ -85,7 +87,7 @@ AnEnContainer::num_analogs() const {
 }
 
 ssc_number_t
-AnEnContainer::getTimezone(size_t station_index) const {
+AnEnContainer::getTimeZone(size_t station_index) const {
     if (stations_.size() - 1 < station_index) throw range_error("Invalid station index");
     
     double lon = stations_.getStation(station_index).getX();
@@ -94,66 +96,66 @@ AnEnContainer::getTimezone(size_t station_index) const {
     else throw runtime_error("Station longitudes need shifting");
 }
 
-void
-AnEnContainer::subset(map<string, Array4DPointer>& ptr_map_subset,
-        size_t& station_i, size_t& flt_i, size_t& analog_i) const {
-    
-    // Clear the map
-    ptr_map_subset.clear();
-    
-    // These are the indices to extract from the data container
-    vector<size_t> stations_i{station_i};
-    vector<size_t> flts_i{flt_i};
-    vector<size_t> analogs_i{analog_i};
-    vector<size_t> times_i(_NUM_TIMES);
-    iota(times_i.begin(), times_i.end(), 0);
-
-    // Initialize the map
-    for (const auto & pair : array_map_) {
-        
-        // Subset array
-        Array4DPointer arr_subset;
-        pair.second.subset(stations_i, times_i, flts_i, analogs_i, arr_subset);
-
-        // Push this array to the map
-        ptr_map_subset.insert(make_pair(pair.first, arr_subset));
-    }
-    
-    return;
-}
-
-void
-AnEnContainer::set(const map<string, Array4DPointer> & ptr_map,
-            ssc_data_t & data_container, const string & name) {
-    
-    // Sanity check
-    if (ptr_map.size() == 0) throw runtime_error("Input map is empty");
-
-    // Initialize a weather table to populate
-    ssc_data_t weather_table = ssc_data_create();
-
-    // Assign data arrays to the table
-    ssc_number_t ptr[_NUM_TIMES];
-    for (const auto & pair : ptr_map) {
-        
-        // Sanity check
-        if (pair.second.num_elements() != _NUM_TIMES) throw runtime_error("The length of Array4DPointer is incorrect");
-        
-        // Convert from double to ssc_number_t
-        const double * ptr_arr = pair.second.getValuesPtr();
-        for (size_t i = 0; i < _NUM_TIMES; ++i) ptr[i] = (ssc_number_t) ptr_arr[i];
-        
-        // Copy values to the weather table
-        ssc_data_set_array(weather_table, pair.first.c_str(), ptr, _NUM_TIMES);
-    }
-
-    // Set weather table
-    ssc_data_set_table(data_container, name.c_str(), weather_table);
-
-    // Free the table after it is assigned
-    ssc_data_free(weather_table);
-    return;
-}
+//void
+//AnEnContainer::subset(map<string, Array4DPointer>& ptr_map_subset,
+//        size_t& station_i, size_t& flt_i, size_t& analog_i) const {
+//    
+//    // Clear the map
+//    ptr_map_subset.clear();
+//    
+//    // These are the indices to extract from the data container
+//    vector<size_t> stations_i{station_i};
+//    vector<size_t> flts_i{flt_i};
+//    vector<size_t> analogs_i{analog_i};
+//    vector<size_t> times_i(_NUM_TIMES);
+//    iota(times_i.begin(), times_i.end(), 0);
+//
+//    // Initialize the map
+//    for (const auto & pair : array_map_) {
+//        
+//        // Subset array
+//        Array4DPointer arr_subset;
+//        pair.second.subset(stations_i, times_i, flts_i, analogs_i, arr_subset);
+//
+//        // Push this array to the map
+//        ptr_map_subset.insert(make_pair(pair.first, arr_subset));
+//    }
+//    
+//    return;
+//}
+//
+//void
+//AnEnContainer::set(const map<string, Array4DPointer> & ptr_map,
+//            ssc_data_t & data_container, const string & name) {
+//    
+//    // Sanity check
+//    if (ptr_map.size() == 0) throw runtime_error("Input map is empty");
+//
+//    // Initialize a weather table to populate
+//    ssc_data_t weather_table = ssc_data_create();
+//
+//    // Assign data arrays to the table
+//    ssc_number_t ptr[_NUM_TIMES];
+//    for (const auto & pair : ptr_map) {
+//        
+//        // Sanity check
+//        if (pair.second.num_elements() != _NUM_TIMES) throw runtime_error("The length of Array4DPointer is incorrect");
+//        
+//        // Convert from double to ssc_number_t
+//        const double * ptr_arr = pair.second.getValuesPtr();
+//        for (size_t i = 0; i < _NUM_TIMES; ++i) ptr[i] = (ssc_number_t) ptr_arr[i];
+//        
+//        // Copy values to the weather table
+//        ssc_data_set_array(weather_table, pair.first.c_str(), ptr, _NUM_TIMES);
+//    }
+//
+//    // Set weather table
+//    ssc_data_set_table(data_container, name.c_str(), weather_table);
+//
+//    // Free the table after it is assigned
+//    ssc_data_free(weather_table);
+//    return;
+//}
 
 ssc_number_t
 AnEnContainer::simpleOffset_(double lon) const {

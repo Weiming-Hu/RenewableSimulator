@@ -70,7 +70,8 @@ find_package(AnEnIO REQUIRED)
 add_executable(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/evergreen.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/AnEnContainer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/Scenarios.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/Scenarios.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/FunctionsEvergreen.cpp)
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 

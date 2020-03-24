@@ -31,27 +31,19 @@ public:
     const Times & flts() const;
     std::size_t num_analogs() const;
     
-    /**
-     * Sets the lat/lon/timezone attributes of in the data container using
-     * the location from the specified station.
-     * @param data_container The SSC data container to set
-     * @param station_index The station index
-     */
-    void setStation(ssc_data_t & data_container, std::size_t station_index) const;
-    
-    
-    
-    
-    
-    ssc_number_t getTimezone(std::size_t station_index) const;
+    ssc_number_t getTimeZone(std::size_t station_index) const;
+    void getCoordinate(ssc_number_t & lon, ssc_number_t & lat, std::size_t station_index) const {};
+    void getLocalDateTime(ssc_number_t & year, ssc_number_t & month, ssc_number_t & day,
+            ssc_number_t & hour, ssc_number_t & minute,
+            std::size_t time_index, std::size_t flt_index) const {};
+    void getUTCDateTime(ssc_number_t & year, ssc_number_t & month, ssc_number_t & day,
+            ssc_number_t & hour, ssc_number_t & minute,
+            std::size_t time_index, std::size_t flt_index) const {};
+    ssc_number_t getValue(std::size_t station_index, std::size_t time_index,
+            std::size_t flt_index, std::size_t analog_index, std::string var_name) const {return 0;};
 
-    void subset(ArrayMap & ptr_map_subset, std::size_t & station_i, std::size_t & flt_i, std::size_t & analog_i) const;
-    
-    static void set(const ArrayMap & ptr_map, ssc_data_t & data_container, const std::string & name = "solar_resource_data");
-    
 private:
     ArrayMap array_map_;
-
     Stations stations_;
     Times times_;
     Times flts_;
