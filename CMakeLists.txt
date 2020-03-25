@@ -67,20 +67,28 @@ find_package(AnEn REQUIRED)
 find_package(AnEnIO REQUIRED)
 
 # Create target
-add_executable(${PROJECT_NAME}
-    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/evergreen.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/AnEnContainer.cpp
+set(EXTRA_CPP ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/AnEnContainer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/Scenarios.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/FunctionsEvergreen.cpp)
 
+add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/evergreen.cpp ${EXTRA_CPP})
+
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ssc)
-target_link_libraries(${PROJECT_NAME} PRIVATE soltrack)
-target_link_libraries(${PROJECT_NAME} PRIVATE AnEnIO::AnEnIO Boost::program_options)
+target_link_libraries(${PROJECT_NAME} PRIVATE ssc soltrack AnEnIO::AnEnIO Boost::program_options)
 
 # Export the executable
 install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}Targets
     RUNTIME DESTINATION bin)
+
+# Add tests
+find_package(CppUnit)
+if(CPPUNIT_FOUND)
+    message(STATUS "CppUnit found. Building tests")
+    enable_testing()
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/tests")
+else(CPPUNIT_FOUND)
+    message(STATUS "No tests built. Install CppUnit to automatically enable tests")
+endif(CPPUNIT_FOUND)
 

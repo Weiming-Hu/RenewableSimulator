@@ -16,8 +16,7 @@ static const double I_sc = 1367;
 
 void
 FunctionsEvergreen::sun_pos(ssc_number_t & azimuth, ssc_number_t & elevation, ssc_number_t & julian_day,
-        ssc_number_t lon, ssc_number_t lat,
-        int year, int month, int day, int hour, int minute, double second) {
+        ssc_number_t lon, ssc_number_t lat, int year, int month, int day, int hour, int minute, double second) {
 
     /*
      * Use SolTrack to calculate the sun position
