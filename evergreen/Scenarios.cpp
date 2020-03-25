@@ -5,12 +5,14 @@
  * Created on March 13, 2020, 1:08 PM
  */
 
+#include "Ncdf.h"
 #include "Scenarios.h"
 #include "Functions.h"
 
 #include <cmath>
 
 using namespace std;
+using namespace netCDF;
 
 /******************************************************************************
  *                                    Scenario                                *
@@ -18,21 +20,20 @@ using namespace std;
 
 void
 Scenario::set(ssc_data_t & data_container) const {
-
-    for (const auto & e : * this) {
-        ssc_data_set_number(data_container, e.first.c_str(), e.second);
-    }
-
+    for (const auto & e : * this) ssc_data_set_number(data_container, e.first.c_str(), e.second);
     return;
 }
 
+void
+Scenario::write(NcGroup & nc_group) const {
+    for (const auto & pair : *this) Ncdf::writeAttribute(nc_group, pair.first, pair.second, NcType::nc_FLOAT);
+    return;
+}
 
 void
 Scenario::print(ostream & os) const {
     os << "{ ";
-    for (const auto & e : *this) {
-        os << e.first << ":" << e.second << " ";
-    }
+    for (const auto & e : *this) os << e.first << ":" << e.second << " ";
     os << "}";
     return;
 }
@@ -68,6 +69,14 @@ Scenarios::set(ssc_data_t & data_container, size_t index) const {
 }
 
 void
+Scenarios::write(NcGroup & nc_group, size_t index) const {
+    Scenario scenario;
+    get(scenario, index);
+    scenario.write(nc_group);
+    return;
+}
+
+void
 Scenarios::get(Scenario & scenario, size_t index) const {
 
     // Clear map
@@ -98,9 +107,7 @@ Scenarios::get(Scenario & scenario, size_t index) const {
 void
 Scenarios::print(ostream & os) const {
     os << "Scenarios:" << endl;
-    for (const auto & e : *this) {
-        os << e.first << ":" << Functions::format(e.second, ",") << endl;
-    }
+    for (const auto & e : *this) os << e.first << ":" << Functions::format(e.second, ",") << endl;
     return;
 }
 

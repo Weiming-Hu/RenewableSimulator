@@ -7,8 +7,8 @@ add_custom_target(test_all ${CMAKE_CTEST_COMMAND} -V)
 find_package(AnEnIO REQUIRED)
 
 # Add tests
-add_library("testEvergreen" "${CMAKE_CURRENT_SOURCE_DIR}/testEvergreen.cpp" ${EXTRA_CPP})
-target_link_libraries("testEvergreen" PUBLIC ssc soltrack AnEnIO::AnEnIO ${CPPUNIT_LIBRARIES})
+add_library("testEvergreen" "${CMAKE_CURRENT_SOURCE_DIR}/testEvergreen.cpp")
+target_link_libraries("testEvergreen" PUBLIC libevergreen ${CPPUNIT_LIBRARIES})
 target_include_directories("testEvergreen" PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../evergreen>)
 
 add_executable("runEvergreen" "${CMAKE_CURRENT_SOURCE_DIR}/runnerEvergreen.cpp")

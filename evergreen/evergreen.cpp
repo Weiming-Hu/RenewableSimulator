@@ -9,14 +9,14 @@
 /** @file */
 
 #include <cmath>
-#include <string>
+#include <netcdf>
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
-#include <numeric>
-#include <iomanip>
 #include <boost/program_options.hpp>
 
+#include "Ncdf.h"
+#include "Config.h"
 #include "Scenarios.h"
 #include "Functions.h"
 #include "AnEnContainer.h"
@@ -60,7 +60,9 @@ void run_pvwatts() {
     /*
      * Read analog input
      */
-    AnEnContainer anen_input(file_path);
+    AnEnContainer anen_input(file_path, {
+        "DownwardShortwaveRadiation", "Temperature_2m", "WindSpeed_10m", "Albedo"
+    }, verbose);
 
     size_t num_stations = anen_input.stations().size();
     size_t num_days = anen_input.times().size();
@@ -78,12 +80,9 @@ void run_pvwatts() {
     if (pvwatts_module == NULL) throw runtime_error("Failed to create all SSC modules");
 
     // Take care of no-provide attributes
-    // TODO: Do we really need to set them?
-//    ssc_number_t *skip_DHI = new ssc_number_t[num_analogs];
-//    ssc_number_t inout_tcell, inout_poa;
-//    ssc_data_set_number(pvwatts, "tcell", inout_tcell);
-//    ssc_data_set_number(pvwatts, "poa", inout_poa);
-//    delete [] skip_DHI;
+    ssc_number_t inout_tcell = NAN, inout_poa = NAN;
+    ssc_data_set_number(pvwatts_data, "tcell", inout_tcell);
+    ssc_data_set_number(pvwatts_data, "poa", inout_poa);
 
     // Set the fixed configurations
     pvwatts_config.set(pvwatts_data);
@@ -93,9 +92,17 @@ void run_pvwatts() {
      * Run batch simulations
      */
     size_t num_scenarios = pvwatts_scenarios.totalScenarios();
+    ssc_number_t ac_scalar, dc_scalar, azimuth_rad, elevation_rad, julian_day;
+    
     Array4DPointer ac(num_stations, num_days, num_flts, num_analogs);
     Array4DPointer dc(num_stations, num_days, num_flts, num_analogs);
-    ssc_number_t ac_scalar, dc_scalar, azimuth_rad, elevation_rad, julian_day;
+    Array4DPointer dni(num_stations, num_days, num_flts, num_analogs);
+    Array4DPointer dhi(num_stations, num_days, num_flts, num_analogs);
+
+    array<string, 4> array_dims {Config::_DIM_STATIONS, Config::_DIM_TEST_TIMES, Config::_DIM_FLTS, Config::_DIM_ANALOGS};
+    
+    // Open the file for writing
+    netCDF::NcFile nc(file_path, netCDF::NcFile::FileMode::write);
 
     if (verbose >= Verbose::Progress) cout
             << "There are in total " << num_scenarios << " scenarios, "
@@ -131,7 +138,7 @@ void run_pvwatts() {
                     ssc_number_t local_year, local_month, local_day, local_hour, local_minute;
                     ssc_number_t UTC_year, UTC_month, UTC_day, UTC_hour, UTC_minute;
                     
-                    anen_input.getLocalDateTime(local_year, local_month, local_day, local_hour, local_minute, day_i, flt_i);
+                    anen_input.getLocalDateTime(local_year, local_month, local_day, local_hour, local_minute, day_i, flt_i, tz);
                     anen_input.getUTCDateTime(UTC_year, UTC_month, UTC_day, UTC_hour, UTC_minute, day_i, flt_i);
 
                     // Set local time to pvwatts module
@@ -160,15 +167,25 @@ void run_pvwatts() {
                         /*
                          * Step 1: Reindl et al. decomposition from GHI to DHI and DNI
                          */
-                        ssc_number_t dhi, dni;
-                        FunctionsEvergreen::decompose_ghi(ghi, dhi, dni, elevation_rad, julian_day);
+                        ssc_number_t dhi_scalar, dni_scalar;
+                        FunctionsEvergreen::decompose_ghi(ghi, dhi_scalar, dni_scalar, elevation_rad, julian_day);
+                        
+                        // Save results
+                        dni.setValue(dni_scalar, station_i, day_i, flt_i, analog_i);
+                        dhi.setValue(dhi_scalar, station_i, day_i, flt_i, analog_i);
+                        
+                        if (std::isnan(dhi_scalar) || std::isnan(dni_scalar)) {
+                            ac.setValue(NAN, station_i, day_i, flt_i, analog_i);
+                            dc.setValue(NAN, station_i, day_i, flt_i, analog_i);
+                            continue;
+                        }
 
                         
                         /*
                          * Step 2: PV power output simulation from DHI and DNI
                          */
-                        ssc_data_set_number(pvwatts_data, "dni", dni);
-                        ssc_data_set_number(pvwatts_data, "dhi", dhi);
+                        ssc_data_set_number(pvwatts_data, "beam", dni_scalar);
+                        ssc_data_set_number(pvwatts_data, "diffuse", dhi_scalar);
                         ssc_data_set_number(pvwatts_data, "alb", alb);
                         ssc_data_set_number(pvwatts_data, "tamb", tamb);
                         ssc_data_set_number(pvwatts_data, "wspd", wspd);
@@ -183,7 +200,7 @@ void run_pvwatts() {
                             
                             continue;
                         } else {
-
+                            
                             // Get AC and DC
                             ssc_data_get_number(pvwatts_data, "ac", &ac_scalar);
                             ssc_data_get_number(pvwatts_data, "dc", &dc_scalar);
@@ -198,8 +215,18 @@ void run_pvwatts() {
             } // End loop for days
         } // End loop for stations
 
-        //        writeAnalogs();
-        //        writeScenarios();
+        // Create a group for this scenario
+        stringstream scenario_name;
+        scenario_name << "scenario_" << scenario_i;
+        auto nc_group = nc.addGroup(scenario_name.str());
+        
+        Ncdf::writeArray4D(nc_group, ac, "ac", array_dims);
+        Ncdf::writeArray4D(nc_group, dc, "dc", array_dims);
+        Ncdf::writeArray4D(nc_group, dni, "dni", array_dims);
+        Ncdf::writeArray4D(nc_group, dhi, "dhi", array_dims);
+        
+        pvwatts_scenarios.write(nc_group, scenario_i);
+        pvwatts_config.write(nc_group);
     }
     
     ssc_module_free(pvwatts_module);

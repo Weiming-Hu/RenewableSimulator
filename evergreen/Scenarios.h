@@ -12,6 +12,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <netcdf>
 
 #include "sscapi.h"
 
@@ -26,6 +27,12 @@ public:
      * @param data_container
      */
     void set(ssc_data_t & data_container) const;
+    
+    /**
+     * Write the scenario to the NetCDF group.
+     * @param nc_group An NetCDF group with write permission
+     */
+    void write(netCDF::NcGroup &) const;
     
     virtual void print(std::ostream &) const;
     friend std::ostream & operator<<(std::ostream &, const Scenario &);
@@ -51,6 +58,13 @@ public:
      * @param index
      */
     void set(ssc_data_t & data_container, std::size_t index) const;
+    
+    /**
+     * Write the particular scenario index to the NetCDF group.
+     * @param nc_group An NetCDF group with write permission
+     * @param index The scenario to write.
+     */
+    void write(netCDF::NcGroup &, std::size_t index) const;
     
     /**
      * Extract a certain scenario from the predefined scenarios. The scenario is

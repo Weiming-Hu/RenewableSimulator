@@ -5,6 +5,7 @@
  * Created on March 23, 2020, 2:52 PM
  */
 
+#include <cmath>
 #include "FunctionsEvergreen.h"
 
 extern "C" {
@@ -54,6 +55,13 @@ FunctionsEvergreen::decompose_ghi(ssc_number_t ghi, ssc_number_t& dhi, ssc_numbe
 
     // Calculate the cosine of zenith angle (sine of elevation angle)
     double cos_zenith = sin(elevation);
+    
+    // Deal with darkness
+    if (cos_zenith <= 0) {
+        dhi = NAN;
+        dni = NAN;
+        return;
+    }
 
     // Correct solar constant for Earth's elliptical orbit
     // 

@@ -66,18 +66,40 @@ find_package(Boost 1.58.0 REQUIRED COMPONENTS date_time serialization regex date
 find_package(AnEn REQUIRED)
 find_package(AnEnIO REQUIRED)
 
+set(evergreen_headers ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/AnEnContainer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/Scenarios.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/FunctionsEvergreen.h)
+
 # Create target
-set(EXTRA_CPP ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/AnEnContainer.cpp
+add_library(lib${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/AnEnContainer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/Scenarios.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/FunctionsEvergreen.cpp)
 
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/evergreen.cpp ${EXTRA_CPP})
+target_include_directories(lib${PROJECT_NAME} PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>)
 
+target_compile_features(lib${PROJECT_NAME} PUBLIC cxx_std_11)
+target_link_libraries(lib${PROJECT_NAME} PUBLIC ssc soltrack AnEnIO::AnEnIO)
+
+add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/evergreen/evergreen.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE lib${PROJECT_NAME} Boost::program_options)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ssc soltrack AnEnIO::AnEnIO Boost::program_options)
-
 # Export the executable
+install(TARGETS lib${PROJECT_NAME}
+    EXPORT lib${PROJECT_NAME}Config
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include)
+
+install(EXPORT lib${PROJECT_NAME}Config
+    NAMESPACE lib${PROJECT_NAME}::
+    DESTINATION lib/cmake)
+
+install(FILES ${evergreen_headers} DESTINATION include)
+
 install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}Targets
     RUNTIME DESTINATION bin)
