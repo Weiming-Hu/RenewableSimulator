@@ -54,34 +54,34 @@ testEvergreen::testPvwattsv5_() {
     ssc_data_t pvwatts_data = ssc_data_create();
     ssc_module_t pvwatts_module = ssc_module_create("pvwattsv5_1ts");
     
-    ssc_data_set_number(pvwatts_data, "year", 2020);
-    ssc_data_set_number(pvwatts_data, "month", 3);
-    ssc_data_set_number(pvwatts_data, "day", 25);
-    ssc_data_set_number(pvwatts_data, "hour", 15);
+    ssc_data_set_number(pvwatts_data, "year", 2018);
+    ssc_data_set_number(pvwatts_data, "month", 4);
+    ssc_data_set_number(pvwatts_data, "day", 7);
+    ssc_data_set_number(pvwatts_data, "hour", 16);
     ssc_data_set_number(pvwatts_data, "minute", 0);
 
-    ssc_data_set_number(pvwatts_data, "lon", -70);
-    ssc_data_set_number(pvwatts_data, "lat", 40);
-    ssc_data_set_number(pvwatts_data, "tz", -4);
+    ssc_data_set_number(pvwatts_data, "lon", -80.9792);
+    ssc_data_set_number(pvwatts_data, "lat", 39.0392);
+    ssc_data_set_number(pvwatts_data, "tz", -5);
 
-    ssc_data_set_number(pvwatts_data, "beam", 300);
-    ssc_data_set_number(pvwatts_data, "diffuse", 100);
-    ssc_data_set_number(pvwatts_data, "tamb", 15);
-    ssc_data_set_number(pvwatts_data, "wspd", 3);
-    ssc_data_set_number(pvwatts_data, "alb", 0.4);
+    ssc_data_set_number(pvwatts_data, "beam", 393.477);
+    ssc_data_set_number(pvwatts_data, "diffuse", 36.3274);
+    ssc_data_set_number(pvwatts_data, "tamb", 12.6398);
+    ssc_data_set_number(pvwatts_data, "wspd", 2.86178);
+    ssc_data_set_number(pvwatts_data, "alb", 0.8);
 
     ssc_data_set_number(pvwatts_data, "time_step", 1);
-    ssc_data_set_number(pvwatts_data, "system_capacity", 10);
+    ssc_data_set_number(pvwatts_data, "system_capacity", 1);
     ssc_data_set_number(pvwatts_data, "module_type", 0);
     ssc_data_set_number(pvwatts_data, "dc_ac_ratio", 1.1);
     ssc_data_set_number(pvwatts_data, "inv_eff", 96);
-    ssc_data_set_number(pvwatts_data, "losses", 10);
+    ssc_data_set_number(pvwatts_data, "losses", 0);
     ssc_data_set_number(pvwatts_data, "array_type", 0);
     ssc_data_set_number(pvwatts_data, "tilt", 0);
-    ssc_data_set_number(pvwatts_data, "azimuth", 107.59);
+    ssc_data_set_number(pvwatts_data, "azimuth", 250.898);
     ssc_data_set_number(pvwatts_data, "gcr", 0.4);
     
-    ssc_number_t tcell = -100, poa = -100;
+    ssc_number_t tcell = NAN, poa = NAN;
     ssc_data_set_number(pvwatts_data, "tcell", tcell);
     ssc_data_set_number(pvwatts_data, "poa", poa);
 
