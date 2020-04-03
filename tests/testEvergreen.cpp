@@ -53,22 +53,24 @@ testEvergreen::testPvwattsv5_() {
 
     ssc_data_t pvwatts_data = ssc_data_create();
     ssc_module_t pvwatts_module = ssc_module_create("pvwattsv5_1ts");
-    
+
     ssc_data_set_number(pvwatts_data, "year", 2018);
-    ssc_data_set_number(pvwatts_data, "month", 4);
-    ssc_data_set_number(pvwatts_data, "day", 7);
-    ssc_data_set_number(pvwatts_data, "hour", 16);
+    ssc_data_set_number(pvwatts_data, "month", 12);
+    ssc_data_set_number(pvwatts_data, "day", 14);
+    ssc_data_set_number(pvwatts_data, "hour", 8);
     ssc_data_set_number(pvwatts_data, "minute", 0);
 
     ssc_data_set_number(pvwatts_data, "lon", -80.9792);
     ssc_data_set_number(pvwatts_data, "lat", 39.0392);
     ssc_data_set_number(pvwatts_data, "tz", -5);
 
-    ssc_data_set_number(pvwatts_data, "beam", 393.477);
-    ssc_data_set_number(pvwatts_data, "diffuse", 36.3274);
-    ssc_data_set_number(pvwatts_data, "tamb", 12.6398);
-    ssc_data_set_number(pvwatts_data, "wspd", 2.86178);
-    ssc_data_set_number(pvwatts_data, "alb", 0.8);
+    ssc_data_set_number(pvwatts_data, "beam", 166.99);
+    ssc_data_set_number(pvwatts_data, "diffuse", 16.4272);
+    ssc_data_set_number(pvwatts_data, "tamb", 4.75);
+    ssc_data_set_number(pvwatts_data, "wspd", 1.1404);
+    ssc_data_set_number(pvwatts_data, "alb", 0.13);
+
+    ssc_data_set_number(pvwatts_data, "azimuth", 123.716);
 
     ssc_data_set_number(pvwatts_data, "time_step", 1);
     ssc_data_set_number(pvwatts_data, "system_capacity", 1);
@@ -78,7 +80,6 @@ testEvergreen::testPvwattsv5_() {
     ssc_data_set_number(pvwatts_data, "losses", 0);
     ssc_data_set_number(pvwatts_data, "array_type", 0);
     ssc_data_set_number(pvwatts_data, "tilt", 0);
-    ssc_data_set_number(pvwatts_data, "azimuth", 250.898);
     ssc_data_set_number(pvwatts_data, "gcr", 0.4);
     
     ssc_number_t tcell = NAN, poa = NAN;

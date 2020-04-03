@@ -174,6 +174,9 @@ void run_pvwatts(const string & file_path, Verbose verbose) {
                          */
                         ssc_number_t dhi_scalar, dni_scalar;
                         FunctionsEvergreen::decompose_ghi(ghi, dhi_scalar, dni_scalar, elevation_rad, julian_day);
+
+                        if (verbose >= Verbose::Debug) cout << "FunctionsEvergreen::decompose_ghi {ghi: " << ghi <<
+                            "} -> {dhi: " << dhi_scalar << ", dni: " << dni_scalar << "}" << endl;
                         
                         // Save results
                         dni.setValue(dni_scalar, station_i, day_i, flt_i, analog_i);
@@ -201,9 +204,13 @@ void run_pvwatts(const string & file_path, Verbose verbose) {
                         
                         // Simulate AC and DC
                         if (ssc_module_exec(pvwatts_module, pvwatts_data) == 0) {
-                            if (verbose >= Verbose::Warning) cerr << "Error from pvwatts at iteration ["
-                                    << station_i << "," << day_i << "," << flt_i << "," << analog_i << "] with the input data: "
-                                    << FunctionsEvergreen::toString(pvwatts_data, "pvwattsv5_1ts") << endl;
+                            stringstream sstr;
+                            sstr << "Error from pvwatts at iteration ["
+                                << station_i << "," << day_i << "," << flt_i << "," << analog_i << "] with the input data: "
+                                << FunctionsEvergreen::toString(pvwatts_data, "pvwattsv5_1ts");
+
+                            if (verbose >= Verbose::Debug) throw runtime_error(sstr.str());
+                            else if (verbose >= Verbose::Warning) cerr << sstr.str() << endl;
                             
                             ac.setValue(NAN, station_i, day_i, flt_i, analog_i);
                             dc.setValue(NAN, station_i, day_i, flt_i, analog_i);
