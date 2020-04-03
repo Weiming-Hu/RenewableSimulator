@@ -77,8 +77,6 @@ void run_pvwatts(const string & file_path, Verbose verbose) {
 
     // Take care of no-provide attributes
     ssc_number_t inout_tcell = NAN, inout_poa = NAN;
-    ssc_data_set_number(pvwatts_data, "tcell", inout_tcell);
-    ssc_data_set_number(pvwatts_data, "poa", inout_poa);
 
     // Set the fixed configurations
     pvwatts_config.set(pvwatts_data);
@@ -196,6 +194,10 @@ void run_pvwatts(const string & file_path, Verbose verbose) {
                         ssc_data_set_number(pvwatts_data, "alb", alb);
                         ssc_data_set_number(pvwatts_data, "tamb", tamb);
                         ssc_data_set_number(pvwatts_data, "wspd", wspd);
+
+                        // Set no-provide variables. Setting them to NA avoids the impact from last iteration
+                        ssc_data_set_number(pvwatts_data, "tcell", inout_tcell);
+                        ssc_data_set_number(pvwatts_data, "poa", inout_poa);
                         
                         // Simulate AC and DC
                         if (ssc_module_exec(pvwatts_module, pvwatts_data) == 0) {
