@@ -159,9 +159,17 @@ void run_pvwatts(const string & file_path, Verbose verbose) {
                         // Get data from analogs
                         ssc_number_t alb = anen_input.getValue(station_i, day_i, flt_i, analog_i, "Albedo");
                         ssc_number_t wspd = anen_input.getValue(station_i, day_i, flt_i, analog_i, "WindSpeed_10m");
-                        ssc_number_t tamb = anen_input.getValue(station_i, day_i, flt_i, analog_i, "Temperature_2m") - 273.15;
+                        ssc_number_t tamb = anen_input.getValue(station_i, day_i, flt_i, analog_i, "Temperature_2m");
                         ssc_number_t ghi = anen_input.getValue(station_i, day_i, flt_i, analog_i, "DownwardShortwaveRadiation");
+
+                        /*
+                         * Hard coded operation !!!!
+                         */
+                        // temparature unit is in Kelvin. Convert it to Celsius
+                        tamb -= 273.15;
                         
+                        // Albedo is a percentage. Convert it to a ratio.
+                        alb /= 100;
 
                         /*
                          * Step 1: Reindl et al. decomposition from GHI to DHI and DNI
