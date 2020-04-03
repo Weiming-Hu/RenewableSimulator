@@ -24,3 +24,4 @@ venv
 nbproject
 release
 UML
+.ycm_extra_conf.py
