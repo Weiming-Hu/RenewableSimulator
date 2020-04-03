@@ -253,7 +253,6 @@ int main(int argc, char** argv) {
     desc.add_options()
             ("help,h", "Print help information for options")
             ("anen", value<string>(&file_path)->required(), "The NetCDF file for analogs")
-            //            ("output-var", value<string>(&out_var)->default_value("ac"), "The simulation variable to output from SSC")
             ("verbose,v", value<int>(&verbose_int)->default_value(2), "The verbose level (0 - 4)");
 
     // Parse the command line arguments
