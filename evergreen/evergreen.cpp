@@ -28,11 +28,7 @@ using namespace boost::program_options;
 // Radians to degrees conversion factor
 static const double R2D = 180 / M_PI;
 
-void run_pvwatts() {
-
-    // TODO: These are input
-    Verbose verbose = Verbose::Progress;
-    string file_path = "This is input";
+void run_pvwatts(const string & file_path, Verbose verbose) {
 
     /*
      * Set up scenarios to simulate
@@ -104,14 +100,13 @@ void run_pvwatts() {
     // Open the file for writing
     netCDF::NcFile nc(file_path, netCDF::NcFile::FileMode::write);
 
-    if (verbose >= Verbose::Progress) cout
-            << "There are in total " << num_scenarios << " scenarios, "
-            << num_stations << " stations, " << num_days << " days, "
-            << num_flts << " lead times to simulate." << endl;
+    if (verbose >= Verbose::Progress) cout << "There are in total " << num_scenarios << " scenarios, "
+            << num_stations << " stations, " << num_days << " days, " << num_flts << " lead times to simulate." << endl;
 
     for (size_t scenario_i = 0; scenario_i < num_scenarios; ++scenario_i) {
 
         // Set the current scenario
+        if (verbose >= Verbose::Progress) cout << "Simulating scenario " << scenario_i << "/" << num_scenarios << endl;
         pvwatts_scenarios.set(pvwatts_data, scenario_i);
 
         // Looping through all stations, days, and lead times.
@@ -147,6 +142,10 @@ void run_pvwatts() {
                     ssc_data_set_number(pvwatts_data, "day", local_day);
                     ssc_data_set_number(pvwatts_data, "hour", local_hour);
                     ssc_data_set_number(pvwatts_data, "minute", local_minute);
+
+                    if (verbose >= Verbose::Debug) cout << "Local date time: " << local_year << "/" << local_month << "/" << local_day
+                            << " " << local_hour << ":" << local_minute << " " << tz << "; UTC date time: " << UTC_year << "/"
+                            << UTC_month << "/" << UTC_day << " " << UTC_hour << ":" << UTC_minute << endl;
                     
                     // Calculate current azimuth and other variables
                     FunctionsEvergreen::sun_pos(azimuth_rad, elevation_rad, julian_day, lon, lat,
@@ -154,13 +153,13 @@ void run_pvwatts() {
                     
                     // Set azimuth
                     ssc_data_set_number(pvwatts_data, "azimuth", azimuth_rad * R2D);
-                    
+
                     for (size_t analog_i = 0; analog_i < num_analogs; ++analog_i) {
                         
                         // Get data from analogs
                         ssc_number_t alb = anen_input.getValue(station_i, day_i, flt_i, analog_i, "Albedo");
                         ssc_number_t wspd = anen_input.getValue(station_i, day_i, flt_i, analog_i, "WindSpeed_10m");
-                        ssc_number_t tamb = anen_input.getValue(station_i, day_i, flt_i, analog_i, "Temperature_2m");
+                        ssc_number_t tamb = anen_input.getValue(station_i, day_i, flt_i, analog_i, "Temperature_2m") - 273.15;
                         ssc_number_t ghi = anen_input.getValue(station_i, day_i, flt_i, analog_i, "DownwardShortwaveRadiation");
                         
 
@@ -192,8 +191,9 @@ void run_pvwatts() {
                         
                         // Simulate AC and DC
                         if (ssc_module_exec(pvwatts_module, pvwatts_data) == 0) {
-                            cerr << "Error from pvwatts at iteration [" << station_i << "," << day_i << ","
-                                    << flt_i << "," << analog_i << "]" << endl;
+                            if (verbose >= Verbose::Warning) cerr << "Error from pvwatts at iteration ["
+                                    << station_i << "," << day_i << "," << flt_i << "," << analog_i << "] with the input data: "
+                                    << FunctionsEvergreen::toString(pvwatts_data, "pvwattsv5_1ts") << endl;
                             
                             ac.setValue(NAN, station_i, day_i, flt_i, analog_i);
                             dc.setValue(NAN, station_i, day_i, flt_i, analog_i);
@@ -246,7 +246,7 @@ int main(int argc, char** argv) {
     stringstream msg;
     msg << "evergreen -- our pursuit of a more sustainable future" << endl
             << "Developed by Weiming Hu [weiming-hu.github.io]" << endl
-            << "Issues @ https://github.com/Weiming-Hu/RenewableSimulator/issues";
+            << "Issues @ https://github.com/Weiming-Hu/RenewableSimulator/issues" << endl;
 
     // Define available options
     options_description desc("Available options");
@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
     verbose = Functions::itov(verbose_int);
     if (verbose >= Verbose::Progress) cout << msg.str() << endl;
 
-    run_pvwatts();
+    run_pvwatts(file_path, verbose);
 
     return 0;
 }

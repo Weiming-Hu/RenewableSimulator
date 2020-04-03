@@ -90,7 +90,7 @@ AnEnContainer::getLocalDateTime(ssc_number_t & year, ssc_number_t & month, ssc_n
         ssc_number_t & hour, ssc_number_t & minute, size_t time_index, size_t flt_index, int offset) const {
     
     // Convert the selected time to a formatted POSIX time
-    Time selected_time = times_.getIndex(time_index) + flts_.getIndex(flt_index);
+    Time selected_time = times_.getTime(time_index) + flts_.getTime(flt_index);
     boost::posix_time::ptime current_ptime = boost::posix_time::time_from_string(selected_time.toString());
     
     // Convert from UTC to local time
@@ -106,7 +106,7 @@ AnEnContainer::getUTCDateTime(ssc_number_t & year, ssc_number_t & month, ssc_num
         ssc_number_t & hour, ssc_number_t & minute, size_t time_index, size_t flt_index) const {
     
     // Convert the selected time to a formatted POSIX time
-    Time selected_time = times_.getIndex(time_index) + flts_.getIndex(flt_index);
+    Time selected_time = times_.getTime(time_index) + flts_.getTime(flt_index);
     boost::posix_time::ptime current_ptime = boost::posix_time::time_from_string(selected_time.toString());
     
     // Get components of the POSIX time

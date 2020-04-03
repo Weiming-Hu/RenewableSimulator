@@ -6,6 +6,9 @@
  */
 
 #include <cmath>
+#include <sstream>
+#include <vector>
+
 #include "FunctionsEvergreen.h"
 
 extern "C" {
@@ -14,6 +17,8 @@ extern "C" {
 
 // Solar constant in W/m^2
 static const double I_sc = 1367;
+
+using namespace std;
 
 void
 FunctionsEvergreen::sun_pos(ssc_number_t & azimuth, ssc_number_t & elevation, ssc_number_t & julian_day,
@@ -95,4 +100,34 @@ FunctionsEvergreen::decompose_ghi(ssc_number_t ghi, ssc_number_t& dhi, ssc_numbe
     if (dni < 0) dni = 0;
     
     return;
+}
+
+string
+FunctionsEvergreen::toString(const ssc_data_t & container, const string & module_name) {
+
+    stringstream sstr;
+    vector<string> names;
+
+    // scalar variable names to be extracted from the specified module
+    if (module_name == "pvwattsv5_1ts") {
+
+        names = {
+            "year", "month", "day", "hour", "minute", "lat", "lon", "tz",
+            "beam", "diffuse", "tamb", "wspd", "alb", "time_step",
+            "system_capacity", "module_type", "dc_ac_ratio", "inv_eff",
+            "losses", "array_type", "tilt", "azimuth", "gcr", "tcell", "poa"
+        };
+
+    } else {
+        return string("[module name not supported]");
+    }
+
+    // Extract scalar value
+    ssc_number_t value;
+    for (const auto & name:names) {
+        ssc_data_get_number(container, name.c_str(), &value);
+        sstr << name << ":" << value << " ";
+    }
+
+    return sstr.str();
 }
