@@ -12,7 +12,14 @@
 # This macro imports a library soltrack
 macro(add_soltrack)
 
-    set(SOLTRACK_LIB_FILENAME "libSolTrack.a")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(SOLTRACK_LIB_FILENAME "libSolTrack.so")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(SOLTRACK_LIB_FILENAME "libSolTrack.a")
+    else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "Currently only compiled librares for Linux and OSX have been uploaded")
+    endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+
     set(SOLTRACK_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/soltrack")
     set(SOLTRACK_INCLUDE_FILE "${SOLTRACK_LIB_DIR}/SolTrack.h")
     set(SOLTRACK_LIB_FILE_BUILD "${SOLTRACK_LIB_DIR}/${SOLTRACK_LIB_FILENAME}")

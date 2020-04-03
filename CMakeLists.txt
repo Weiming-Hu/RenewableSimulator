@@ -105,7 +105,7 @@ install(TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION bin)
 
 # Add tests
-find_package(CppUnit)
+find_package(cppunit)
 if(CPPUNIT_FOUND)
     message(STATUS "CppUnit found. Building tests")
     enable_testing()
