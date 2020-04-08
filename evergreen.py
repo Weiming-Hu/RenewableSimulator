@@ -68,10 +68,17 @@ def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_s
         raise Exception("Some variables are not found from the input file ({})".format(nc_file))
 
     # Determine the dimensions of the problem to simulate
-    num_stations = nc.dimensions['num_stations'].size
-    num_days = nc.dimensions['num_test_times'].size
+    #num_stations = nc.dimensions['num_stations'].size
+    num_stations = 1
+
+    #num_days = nc.dimensions['num_test_times'].size
+    num_days = 10
+
     num_lead_times = nc.dimensions['num_flts'].size
-    num_analogs = nc.dimensions['num_analogs'].size
+
+    #num_analogs = nc.dimensions['num_analogs'].size
+    num_analogs = 3
+
     num_scenarios = scenarios.total_scenarios()
 
     if progress:
@@ -127,7 +134,8 @@ def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_s
         # TODO: Uncomment this if you are using liujordan separation model
         # forecast_model = forecast.NAM()
 
-        for station_index in range(num_stations):
+        #for station_index in range(num_stations):
+        for station_index in [945]:
 
             # Determine the current location
             latitude = nc_vars["lat"][station_index].data
@@ -135,7 +143,8 @@ def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_s
 
             current_location = location.Location(latitude=latitude, longitude=longitude)
 
-            for day_index in range(num_days):
+            #for day_index in range(num_days):
+            for day_index in range(180, 190):
                 for lead_time_index in range(num_lead_times):
 
                     # Update the progress bar
@@ -161,7 +170,8 @@ def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_s
                     # Calculate air mass
                     air_mass = atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
 
-                    for analog_index in range(num_analogs):
+                    #for analog_index in range(num_analogs):
+                    for analog_index in range(0, 4):
 
                         # Extra weather forecasts
                         ghi = nc_vars["ghi"][analog_index, lead_time_index, day_index, station_index].data
