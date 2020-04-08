@@ -45,10 +45,7 @@ $ python evergreen.py -h
 usage: evergreen.py [-h] [--nc NC] [--silent] [--profile]
                     [--profiler PROFILER]
 
-evergreen -- our pursuit of a more sustainable future Developed by Weiming Hu
-[weiming-hu.github.io] Specify an input weather analog file from the command
-line, Edit the source file 'evergreen.py' if you want to change the variable
-mapping and simulation scenarios.
+evergreen -- our pursuit of a more sustainable future
 
 optional arguments:
   -h, --help           show this help message and exit
