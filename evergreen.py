@@ -21,20 +21,21 @@ import datetime
 # Scientific python add-ons
 import pandas as pd
 from netCDF4 import Dataset
-from pvlib import pvsystem, location, irradiance, atmosphere, temperature
+from pvlib import location, atmosphere, temperature, pvsystem, irradiance
 # from pvlib import forecast
 
 # Visualization add-ons
 from progress.bar import IncrementalBar
 
 # Self hosted modules
+from Functions import simulate_single_instance
 from Scenarios import Scenarios
 
 # Performance add-ons
 import pyximport; pyximport.install()
 
 
-def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_stopping=False):
+def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True, early_stopping=False):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -95,7 +96,7 @@ def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_s
 
     # Batch run simulations
     if progress:
-        print("Start PV simulation ...")
+        print("Start PV simulation with AnEn ...")
 
     for scenario_index in range(num_scenarios):
 
@@ -169,51 +170,10 @@ def run_pv_simulations(nc_file, variable_dict, scenarios, progress=True, early_s
                         wspd = nc_vars["wspd"][analog_index, lead_time_index, day_index, station_index].data
                         tamb = nc_vars["tamb"][analog_index, lead_time_index, day_index, station_index] - 273.15
 
-                        # Decompose DNI from GHI
-                        #
-                        # TODO: There are different separation models.
-                        #
-                        dni_dict = irradiance.disc(ghi, solar_position["zenith"], current_time)
-
-                        # dni_dict = irradiance.erbs(ghi, solar_position["zenith"], current_time)
-
-                        # transmittance = forecast_model.cloud_cover_to_transmittance_linear(20)
-                        # dni_dict = irradiance.liujordan(solar_position["zenith"], transmittance, air_mass)
-
-                        dni = dni_dict["dni"]
-
-                        # Calculate POA sky diffuse
-                        #
-                        # TODO: There are different models to estimate diffuse radiation.
-                        #
-                        poa_sky_diffuse = irradiance.haydavies(
-                            surface_tilt, surface_azimuth, ghi, dni, dni_extra,
-                            solar_position["apparent_zenith"], solar_position["azimuth"])
-
-                        # Calculate POA ground diffuse
-                        #
-                        # TODO: There are different ground surface types.
-                        #
-                        poa_ground_diffuse = irradiance.get_ground_diffuse(surface_tilt, ghi, albedo)
-
-                        # Calculate angle of incidence
-                        aoi = irradiance.aoi(surface_tilt, surface_azimuth, solar_position["apparent_zenith"],
-                                             solar_position["azimuth"])
-
-                        # Calculate POA total
-                        poa_irradiance = irradiance.poa_components(aoi, dni, poa_sky_diffuse, poa_ground_diffuse)
-
-                        # Calculate cell temperature
-                        tcell = pvsystem.temperature.sapm_cell(
-                            poa_irradiance['poa_global'], tamb, wspd,
-                            tcell_model_parameters['a'], tcell_model_parameters['b'], tcell_model_parameters["deltaT"])
-
-                        # Calculate effective irradiance
-                        effective_irradiance = pvsystem.sapm_effective_irradiance(
-                            poa_irradiance.poa_direct, poa_irradiance.poa_diffuse, air_mass, aoi, pv_module)
-
-                        # Calculate power
-                        sapm_out = pvsystem.sapm(effective_irradiance, tcell, pv_module)
+                        # Simulate a single instance power output
+                        sapm_out = simulate_single_instance(
+                            ghi, dni_extra, tamb, wspd, albedo, current_time, surface_tilt, surface_azimuth,
+                            pv_module, air_mass, tcell_model_parameters, solar_position)
 
                         # Assign results
                         p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
@@ -313,7 +273,7 @@ if __name__ == '__main__':
             raise Exception("Unsupported profiler: {}".format(args.profiler))
 
     # Run the simulator
-    run_pv_simulations(nc_file, variable_dict, scenarios, progress=not args.silent, early_stopping=args.profile)
+    run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=not args.silent, early_stopping=args.profile)
 
     if args.profile:
         if args.profiler == "yappi":
