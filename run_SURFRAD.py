@@ -75,7 +75,7 @@ def run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, p
             # Get current time
             datetime_str = '/'.join([str(int(x)) for x in current_row[['year', 'month', 'day', 'hour', 'minute']]])
             current_time = pd.to_datetime(datetime_str, format="%Y/%m/%d/%H/%M")
-            times.append(current_time)
+            times.append(current_time.strftime(format = "%Y-%m-%d-%H-%M"))
 
             # Calculate sun position
             solar_position = current_location.get_solarposition(current_time)
@@ -92,7 +92,7 @@ def run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, p
                 pv_module, air_mass, tcell_model_parameters, solar_position)
 
             # Store results
-            p_mp.append(sapm_out["p_mp"])
+            p_mp.append(sapm_out["p_mp"][0])
 
         np.savetxt(output_file_prefix + "_scenario-{:05d}.csv".format(scenario_index),
                    [p for p in zip(times, p_mp)], delimiter=',', fmt='%s')
@@ -122,9 +122,9 @@ if __name__ == '__main__':
     year_folder = "/Volumes/WD3TB/SURFRAD/Penn_State_PA/2018"
 
     # Define the output prefix
-    prefix = "PSU"
+    output_file_prefix = "PSU"
 
-    run_pv_simulation_with_SURFRAD(prefix, scenarios, year_folder, progress)
+    run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, progress)
 
     if progress:
         print("Simulation with SURFRAD data is complete!")
