@@ -32,7 +32,7 @@ from Functions import simulate_single_instance
 from Scenarios import Scenarios
 
 # Performance add-ons
-# import pyximport; pyximport.install()
+import pyximport; pyximport.install()
 
 
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True, early_stopping=False):
