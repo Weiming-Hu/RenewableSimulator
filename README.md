@@ -34,7 +34,7 @@ These packages are used in this project:
 - `progress`
 - `Cython`
 - `yappi` used for profiling
-- `pyinstrument` used ofr profiling
+- `pyinstrument` used for profiling
 
 ### Simulation
 
