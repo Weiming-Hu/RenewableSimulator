@@ -90,19 +90,19 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # If profiling is used, I explicitly terminate the program earlier after 30 simulations.
     early_stopping_count = 100
 
+    # Batch run simulations
+    if progress:
+        print("Start PV simulation with AnEn ...")
+
     # Initialize progress bar
     if early_stopping:
         bar_length = early_stopping_count / num_analogs
-        print("Early stopping is engaged. Progress will be terminated after {} simulated instances".format(early_stopping))
+        print("Early stopping is engaged. Progress will be terminated after {} simulated instances".format(early_stopping_count))
     else:
         bar_length = num_scenarios * num_stations * num_days * num_lead_times
 
     pbar = IncrementalBar("PV simulation", max=bar_length)
     pbar.suffix = '%(percent).1f%% - %(eta)ds'
-
-    # Batch run simulations
-    if progress:
-        print("Start PV simulation with AnEn ...")
 
     for scenario_index in range(num_scenarios):
 
