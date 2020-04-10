@@ -87,12 +87,18 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
-    # Initialize progress bar
-    pbar = IncrementalBar("PV simulation", max=num_scenarios * num_stations * num_days * num_lead_times)
-    pbar.suffix = '%(percent).1f%% - %(eta)ds'
-
     # If profiling is used, I explicitly terminate the program earlier after 30 simulations.
     early_stopping_count = 200
+
+    # Initialize progress bar
+    if early_stopping:
+        bar_length = early_stopping_count
+        print("Early stopping is engaged. Progress will be terminated after {} simulated instances".format(bar_length))
+    else:
+        bar_length = num_scenarios * num_stations * num_days * num_lead_times
+
+    pbar = IncrementalBar("PV simulation", max=bar_length)
+    pbar.suffix = '%(percent).1f%% - %(eta)ds'
 
     # Batch run simulations
     if progress:
