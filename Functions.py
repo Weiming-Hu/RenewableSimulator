@@ -14,13 +14,53 @@
 #
 
 import pandas as pd
+import math
 
 from os import listdir, path
 from progress.bar import IncrementalBar
 from pvlib import pvsystem, irradiance, iotools
 
 
+def get_start_index(total, num_procs, rank):
+
+    if total < num_procs:
+        raise Exception("You are probably wasting computing resources. You requested too many processes.")
+
+    if rank >= num_procs:
+        raise Exception("The rank index {} can not be greater or equal to the number of processes {}".format(
+            rank, num_procs))
+
+    return math.ceil(rank * total / num_procs)
+
+
+def get_end_index(total, num_procs, rank):
+
+    if total < num_procs:
+        raise Exception("You are probably wasting computing resources. You requested too many processes.")
+
+    if rank >= num_procs:
+        raise Exception("The rank index {} can not be greater or equal to the number of processes {}".format(
+            rank, num_procs))
+
+    if rank == num_procs:
+        return total
+
+    return math.ceil((rank + 1) * total / num_procs)
+
+
+def get_sub_total(total, num_procs, rank):
+    return get_end_index(total, num_procs, rank) - get_start_index(total, num_procs, rank) + 1
+
+
 def read_hourly_SURFRAD(folder, progress=True):
+    """
+    Reads only the hourly data from the daily data files from the input folder. It is assumed that all files in the
+    folder belong to the same location.
+
+    :param folder: A data folder with SURFRAD daily data files
+    :param progress: Whether to show a progress bar
+    :return: Hourly data frame and the meta information
+    """
 
     # List all data files in the folder
     folder = path.expanduser(folder)
