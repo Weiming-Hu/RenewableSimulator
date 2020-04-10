@@ -32,7 +32,7 @@ from Functions import simulate_single_instance
 from Scenarios import Scenarios
 
 # Performance add-ons
-import pyximport; pyximport.install()
+# import pyximport; pyximport.install()
 
 
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True, early_stopping=False):
@@ -68,6 +68,12 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     if not all(nc_vars.values()):
         raise Exception("Some variables are not found from the input file ({})".format(nc_file))
 
+    # Extract variables
+    nc_ghi = nc_vars["ghi"]
+    nc_albedo = nc_vars["alb"]
+    nc_wspd = nc_vars["wspd"]
+    nc_tamb = nc_vars["tamb"]
+
     # Determine the dimensions of the problem to simulate
     num_stations = nc.dimensions['num_stations'].size
     num_days = nc.dimensions['num_test_times'].size
@@ -87,8 +93,8 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
-    # If profiling is used, I explicitly terminate the program earlier after 30 simulations.
-    early_stopping_count = 100
+    # If profiling is used, I explicitly terminate the program earlier after certain simulations.
+    early_stopping_count = 5
 
     # Batch run simulations
     if progress:
@@ -96,10 +102,17 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
 
     # Initialize progress bar
     if early_stopping:
-        bar_length = early_stopping_count / num_analogs
-        print("Early stopping is engaged. Progress will be terminated after {} simulated instances".format(early_stopping_count))
+        bar_length = early_stopping_count
+
+        msg = "Early stopping is engaged. Progress will be terminated after {} simulated instances".format(
+            early_stopping_count * num_analogs * num_lead_times)
+        msg += " including {} * {} lead times * {} analog members".format(
+            early_stopping_count, num_lead_times, num_analogs)
+
+        print(msg)
+
     else:
-        bar_length = num_scenarios * num_stations * num_days * num_lead_times
+        bar_length = num_scenarios * num_stations * num_days
 
     pbar = IncrementalBar("PV simulation", max=bar_length)
     pbar.suffix = '%(percent).1f%% - %(eta)ds'
@@ -143,11 +156,8 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
             current_location = location.Location(latitude=latitude, longitude=longitude)
 
             for day_index in range(num_days):
-                for lead_time_index in range(num_lead_times):
 
-                    # Update the progress bar
-                    if progress:
-                        pbar.next()
+                for lead_time_index in range(num_lead_times):
 
                     # Determine the current time
                     current_posix = nc_vars["date"][day_index] + nc_vars["flt"][lead_time_index]
@@ -171,10 +181,10 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                     for analog_index in range(num_analogs):
 
                         # Extra weather forecasts
-                        ghi = nc_vars["ghi"][analog_index, lead_time_index, day_index, station_index].data
-                        albedo = nc_vars["alb"][analog_index, lead_time_index, day_index, station_index] / 100
-                        wspd = nc_vars["wspd"][analog_index, lead_time_index, day_index, station_index].data
-                        tamb = nc_vars["tamb"][analog_index, lead_time_index, day_index, station_index] - 273.15
+                        ghi = nc_ghi[analog_index, lead_time_index, day_index, station_index].data
+                        albedo = nc_albedo[analog_index, lead_time_index, day_index, station_index] / 100
+                        wspd = nc_wspd[analog_index, lead_time_index, day_index, station_index].data
+                        tamb = nc_tamb[analog_index, lead_time_index, day_index, station_index] - 273.15
 
                         # Simulate a single instance power output
                         sapm_out = simulate_single_instance(
@@ -184,17 +194,21 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                         # Assign results
                         p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
 
-                        # Subtract 1 from early stopping counter
-                        early_stopping_count -= 1
+                # Update the progress bar
+                if progress:
+                    pbar.next()
 
-                        if early_stopping and early_stopping_count == 0:
-                            pbar.finish()
-                            nc.close()
+                # Subtract 1 from early stopping counter
+                early_stopping_count -= 1
 
-                            if progress:
-                                print("Simulation terminated due to the profiling tool engaged")
+                if early_stopping and early_stopping_count == 0:
+                    pbar.finish()
+                    nc.close()
 
-                            return
+                    if progress:
+                        print("Simulation terminated due to the profiling tool engaged")
+
+                    return
 
     pbar.finish()
     nc.close()

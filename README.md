@@ -33,8 +33,8 @@ These packages are used in this project:
 - `pvlib`
 - `progress`
 - `Cython`
-- `yappi` used for profiling
-- `pyinstrument` used for profiling
+- `yappi` used only for profiling
+- `pyinstrument` used only for profiling
 
 ### Simulation
 
@@ -58,6 +58,8 @@ optional arguments:
 
 ### Profiling
 
+#### By Function Calls
+
 By default, it uses `pyinstrument` for profiling.
 
 ```buildoutcfg
@@ -71,6 +73,43 @@ $ python evergreen.py --nc <analogs.nc> --profile --profiler yappi
 ```
 
 And then visualize the results with `qcachegrind` on Mac OS or `kcachegrind` on Linux.
+
+#### Line-By-Line Profiling
+
+[line_profiler](https://github.com/pyutils/line_profiler) provides simple-to-use function profiling tools.
+
+First, install the tool.
+
+```buildoutcfg
+pip install line_profiler
+```
+
+Then, add the following code.
+
+```python
+...
+import line_profiler
+
+@profile
+def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True, early_stopping=False):
+...
+```
+
+Chnage the function call argument to always enable `early_stopping`.
+
+```python
+run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=not args.silent, early_stopping=True)
+```
+
+Then, generate profiling information by running the follwoing code.
+
+```buildoutcfg
+# Generate profiling file
+kernprof -l evergreen.py
+
+# Generate readable file
+python -m line_profiler evergreen.py.lprof > evergreen.py.readable
+```
 
 ## Feedback
 

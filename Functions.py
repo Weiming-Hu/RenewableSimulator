@@ -40,9 +40,6 @@ def read_hourly_SURFRAD(folder, progress=True):
     # Read each daily file as a data frame and append it to the data frame list
     for file in all_files:
 
-        if progress:
-            pbar.next()
-
         # Read file
         daily_surfrad = iotools.read_surfrad(file)
 
@@ -57,6 +54,9 @@ def read_hourly_SURFRAD(folder, progress=True):
 
         # Append hourly data to the list
         df_list.append(records)
+
+        if progress:
+            pbar.next()
 
     if progress:
         pbar.finish()

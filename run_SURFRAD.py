@@ -59,9 +59,6 @@ def run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, p
 
         for row_index in range(yearly_data.shape[0]):
 
-            if progress:
-                pbar.next()
-
             # Extract current row and values
             current_row = yearly_data.iloc[row_index]
             ghi = current_row['ghi']
@@ -93,6 +90,9 @@ def run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, p
 
             # Store results
             p_mp.append(sapm_out["p_mp"][0])
+
+            if progress:
+                pbar.next()
 
         np.savetxt(output_file_prefix + "_scenario-{:05d}.csv".format(scenario_index),
                    [p for p in zip(times, p_mp)], delimiter=',', fmt='%s')
