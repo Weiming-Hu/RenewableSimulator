@@ -20,9 +20,9 @@ import datetime
 
 # Scientific python add-ons
 import pandas as pd
+import numpy as np
 from netCDF4 import Dataset
 from pvlib import location, atmosphere, temperature, pvsystem, irradiance
-# from pvlib import forecast
 
 # Visualization add-ons
 from progress.bar import IncrementalBar
@@ -69,7 +69,14 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         print("{} processes have been started for the simulation")
 
     # Open the NetCDF file
-    nc = Dataset(nc_file, "a", parallel=True, comm=comm, info=MPI.Info())
+    if num_procs == 1:
+        parallel_netcdf = False
+        if progress:
+            print("Serial I/O is used when only 1 process is created.")
+    else:
+        parallel_netcdf = True
+
+    nc = Dataset(nc_file, "a", parallel=parallel_netcdf, comm=comm, info=MPI.Info())
 
     # Read variables as a dictionary
     nc_vars = {key:nc.variables.get(value) for (key, value) in variable_dict.items()}
@@ -152,12 +159,13 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
             nc_output_group.setncattr(key, value)
 
         # Create an array to store power at maximum-power point
-        p_mp = nc_output_group.variables.get("p_mp")
+        nc_p_mp = nc_output_group.variables.get("p_mp")
+        p_mp = np.zeros((num_analogs, num_lead_times, num_days, num_sub_stations))
 
-        if p_mp is None:
-            p_mp = nc_output_group.createVariable("p_mp", "f8", array_dimensions)
+        if nc_p_mp is None:
+            nc_p_mp = nc_output_group.createVariable("p_mp", "f8", array_dimensions)
 
-        p_mp.long_name = "power at maximum-power point"
+        nc_p_mp.long_name = "power at maximum-power point"
 
         # Copy values from the current scenarios
         surface_tilt = current_scenario["surface_tilt"]
@@ -214,7 +222,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                             pv_module, air_mass, tcell_model_parameters, solar_position)
 
                         # Assign results
-                        p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
+                        nc_p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
 
                 # Update the progress bar
                 if progress and rank == 0:

@@ -13,18 +13,20 @@
 # The Pennsylvania State University
 #
 
+# Scientific python add-ons
 import pandas as pd
 import numpy as np
-
 from pvlib import location, atmosphere, temperature, pvsystem, irradiance
 
+# Visualization add-ons
 from progress.bar import IncrementalBar
 
+# Self hosted modules
 from Scenarios import Scenarios
 from Functions import read_hourly_SURFRAD, simulate_single_instance
 
 
-def run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, progress=True):
+def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, progress=True):
 
     # Read hourly SURFRAD data
     yearly_data, meta = read_hourly_SURFRAD(year_folder, progress)
@@ -124,7 +126,7 @@ if __name__ == '__main__':
     # Define the output prefix
     output_file_prefix = "PSU"
 
-    run_pv_simulation_with_SURFRAD(output_file_prefix, scenarios, year_folder, progress)
+    run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, progress)
 
     if progress:
         print("Simulation with SURFRAD data is complete!")

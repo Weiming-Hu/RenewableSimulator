@@ -22,6 +22,14 @@ from pvlib import pvsystem, irradiance, iotools
 
 
 def get_start_index(total, num_procs, rank):
+    """
+    Get the start index of a given rank
+
+    :param total: The total number of instances
+    :param num_procs: The total number of processes
+    :param rank: The current rank number
+    :return: The start index of the instance for the current rank
+    """
 
     if total < num_procs:
         raise Exception("You are probably wasting computing resources. You requested too many processes.")
@@ -34,6 +42,14 @@ def get_start_index(total, num_procs, rank):
 
 
 def get_end_index(total, num_procs, rank):
+    """
+    Get the end index of a given rank
+
+    :param total: The total number of instances
+    :param num_procs: The total number of processes
+    :param rank: The current rank number
+    :return: The end index of the instance for the current rank. Note that this index is exclusive.
+    """
 
     if total < num_procs:
         raise Exception("You are probably wasting computing resources. You requested too many processes.")
@@ -49,6 +65,13 @@ def get_end_index(total, num_procs, rank):
 
 
 def get_sub_total(total, num_procs, rank):
+    """
+    Get the number of instances for the given rank.
+    :param total: The total number of instances
+    :param num_procs: The total number of processes
+    :param rank: the current rank number
+    :return: The number of instances for the given rank
+    """
     return get_end_index(total, num_procs, rank) - get_start_index(total, num_procs, rank) + 1
 
 
@@ -113,6 +136,7 @@ def simulate_single_instance(ghi, dni_extra, tamb, wspd, albedo, current_time, s
     Simulates PV energy production for a single instance at a single location for one timestamp.
     """
 
+    # Skip any simulation if the ghi is zero
     if ghi == 0:
         return {"i_sc": 0, "i_mp": 0, "v_oc": 0, "v_mp": 0, "p_mp": 0, "i_x": 0, "i_xx": 0}
 
@@ -121,11 +145,7 @@ def simulate_single_instance(ghi, dni_extra, tamb, wspd, albedo, current_time, s
     # TODO: There are different separation models.
     #
     dni_dict = irradiance.disc(ghi, solar_position["zenith"], current_time)
-
     # dni_dict = irradiance.erbs(ghi, solar_position["zenith"], current_time)
-
-    # transmittance = forecast_model.cloud_cover_to_transmittance_linear(20)
-    # dni_dict = irradiance.liujordan(solar_position["zenith"], transmittance, air_mass)
 
     dni = dni_dict["dni"]
 
