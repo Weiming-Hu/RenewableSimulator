@@ -80,12 +80,6 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     if not all(nc_vars.values()):
         raise Exception("Some variables are not found from the input file ({})".format(nc_file))
 
-    # Extract variables
-    nc_ghi = nc_vars["ghi"]
-    nc_albedo = nc_vars["alb"]
-    nc_wspd = nc_vars["wspd"]
-    nc_tamb = nc_vars["tamb"]
-
     # Determine the dimensions of the problem to simulate
     num_stations = nc.dimensions['num_stations'].size
     num_days = nc.dimensions['num_test_times'].size
@@ -101,7 +95,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                 print("max_num_stations is effectively set to {}".format(max_num_stations))
 
     if progress and rank == 0:
-        dimension_info = "Simulation dimensions:\n" + \
+        dimension_info = "Total simulation dimensions:\n" + \
                          "-- {} scenarios\n".format(num_scenarios) + \
                          "-- {} stations\n".format(num_stations) + \
                          "-- {} test days\n".format(num_days) + \
@@ -113,8 +107,22 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # Determine the chunk of stations allocated to this current process
     station_index_start = get_start_index(num_stations, num_procs, rank)
     station_index_end = get_end_index(num_stations, num_procs, rank)
+    num_sub_stations = station_index_end - station_index_start
+    if num_sub_stations == 1:
+        msg = "Rank #{} only processes 1 station but at least 2 stations".format(rank)
+        raise Exception(msg)
+
+    # Extract variables for the current stations
     if progress:
-        print("Rank #{} processes stations [{}, {}).".format(rank, station_index_start, station_index_end))
+        print("Rank #{} reading data for stations [{}, {})".format(rank, station_index_start, station_index_end))
+
+    nc_ghi = nc_vars["ghi"][:, :, :, station_index_start:station_index_end]
+    nc_albedo = nc_vars["alb"][:, :, :, station_index_start:station_index_end]
+    nc_wspd = nc_vars["wspd"][:, :, :, station_index_start:station_index_end]
+    nc_tamb = nc_vars["tamb"][:, :, :, station_index_start:station_index_end]
+
+    if progress:
+        print("Rank #{} finished reading data".format(rank))
 
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
@@ -170,7 +178,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         # TODO: Uncomment this if you are using liujordan separation model
         # forecast_model = forecast.NAM()
 
-        for station_index in range(station_index_start, station_index_end):
+        for station_index in range(num_sub_stations):
 
             # Determine the current location
             latitude = nc_vars["lat"][station_index].data
@@ -204,9 +212,9 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                     for analog_index in range(num_analogs):
 
                         # Extra weather forecasts
-                        ghi = nc_ghi[analog_index, lead_time_index, day_index, station_index].data
+                        ghi = nc_ghi[analog_index, lead_time_index, day_index, station_index]
                         albedo = nc_albedo[analog_index, lead_time_index, day_index, station_index] / 100
-                        wspd = nc_wspd[analog_index, lead_time_index, day_index, station_index].data
+                        wspd = nc_wspd[analog_index, lead_time_index, day_index, station_index]
                         tamb = nc_tamb[analog_index, lead_time_index, day_index, station_index] - 273.15
 
                         # Simulate a single instance power output
