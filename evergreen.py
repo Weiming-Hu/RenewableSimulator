@@ -35,6 +35,7 @@ from Scenarios import Scenarios
 from mpi4py import MPI
 
 
+@profile
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
                                     max_num_stations=None, early_stopping=False,
                                     early_stopping_count=5):
@@ -343,30 +344,10 @@ if __name__ == '__main__':
         # Use Cython to optimize the code if profiler is not engaged
         import pyximport; pyximport.install()
 
-    # Define function arguments
-    simulator_kwargs = {
-        "nc_file": nc_file,
-        "variable_dict":variable_dict,
-        "scenarios": scenarios,
-        "progress": not args.silent,
-        "max_num_stations": args.stations,
-        "early_stopping": args.profile,
-    }
-
     # Run the simulator
-    if args.profiler == "line_profiler":
-
-        try:
-            @profile
-            def wrapper(**kwargs):
-                run_pv_simulations_with_analogs(**kwargs)
-        except:
-            raise Exception("Failed to create the wrapper function. Did you properly use kernprof ?")
-
-        wrapper(**simulator_kwargs)
-
-    else:
-        run_pv_simulations_with_analogs(**simulator_kwargs)
+    run_pv_simulations_with_analogs(
+        nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios,
+        progress=not args.silent, max_num_stations=args.stations, early_stopping=args.profile)
 
     if args.profile:
         if args.profiler == "yappi":
