@@ -34,11 +34,10 @@ from Scenarios import Scenarios
 # Performance add-ons
 from mpi4py import MPI
 
-import line_profiler
 
-@profile
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
-                                    early_stopping=False, max_num_stations=None):
+                                    max_num_stations=None, early_stopping=False,
+                                    early_stopping_count=5):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -51,6 +50,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     :param scenarios: Scenarios to simulation
     :param progress: Whether to show progress information
     :param early_stopping: Stop the simulation earlier when profiling is engaged
+    :param early_stopping_count: A small number to signify the early stopping of the simulation.
     :return:
     """
 
@@ -74,7 +74,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     if num_procs == 1:
         parallel_netcdf = False
         if progress:
-            print("Serial I/O is used when only 1 process is created.")
+            print("No parallel I/O is enabled when only 1 process is created.")
     else:
         parallel_netcdf = True
 
@@ -94,12 +94,11 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     num_analogs = nc.dimensions['num_analogs'].size
     num_scenarios = scenarios.total_scenarios()
 
-    if max_num_stations is not None:
-        if max_num_stations < num_stations:
-            num_stations = max_num_stations
-
-            if rank == 0:
-                print("max_num_stations is effectively set to {}".format(max_num_stations))
+    # If the max number of stations is defined, constrain the number of total stations to simulate
+    if max_num_stations is not None and max_num_stations < num_stations:
+        num_stations = max_num_stations
+        if rank == 0:
+            print("The total number of stations to simulate is effectively limited to {}".format(num_stations))
 
     if progress and rank == 0:
         dimension_info = "Total simulation dimensions:\n" + \
@@ -107,21 +106,22 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                          "-- {} stations\n".format(num_stations) + \
                          "-- {} test days\n".format(num_days) + \
                          "-- {} lead times\n".format(num_lead_times) + \
-                         "-- {} analog memebrs\n".format(num_analogs) + \
+                         "-- {} analog members\n".format(num_analogs) + \
                          "-- {} processes".format(num_procs)
         print(dimension_info)
 
-    # Determine the chunk of stations allocated to this current process
+    # Determine the chunk of stations assigned to this current process
     station_index_start = get_start_index(num_stations, num_procs, rank)
     station_index_end = get_end_index(num_stations, num_procs, rank)
     num_sub_stations = station_index_end - station_index_start
+
     if num_sub_stations == 1:
-        msg = "Rank #{} only processes 1 station but at least 2 stations".format(rank)
+        msg = "Rank #{} only processes 1 station but at least 2 stations. Reduce the number of processes.".format(rank)
         raise Exception(msg)
 
     # Extract variables for the current stations
     if progress:
-        print("Rank #{} reading data for stations [{}, {})".format(rank, station_index_start, station_index_end))
+        print("Rank #{} reading data from stations [{}, {})".format(rank, station_index_start, station_index_end))
 
     nc_ghi = nc_vars["ghi"][:, :, :, station_index_start:station_index_end]
     nc_albedo = nc_vars["alb"][:, :, :, station_index_start:station_index_end]
@@ -134,10 +134,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
-    # If profiling is used, I explicitly terminate the program earlier after certain simulations.
-    early_stopping_count = 5
-
-    # Initialize progress bar
+    # Initialize a progress bar
     if early_stopping and rank == 0:
         bar_length = early_stopping_count
 
@@ -145,7 +142,6 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
             early_stopping_count * num_analogs * num_lead_times)
         msg += " including {} * {} lead times * {} analog members".format(
             early_stopping_count, num_lead_times, num_analogs)
-
         print(msg)
 
     else:
@@ -168,8 +164,8 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
             nc_output_group.setncattr(key, value)
 
         # Create an array to store power at maximum-power point
-        nc_p_mp = nc_output_group.variables.get("p_mp")
         p_mp = np.zeros((num_analogs, num_lead_times, num_days, num_sub_stations))
+        nc_p_mp = nc_output_group.variables.get("p_mp")
 
         if nc_p_mp is None:
             nc_p_mp = nc_output_group.createVariable("p_mp", "f8", array_dimensions)
@@ -182,9 +178,6 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         tcell_model_parameters = temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
             current_scenario["tcell_model_parameters"]]
         pv_module = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
-
-        # TODO: Uncomment this if you are using liujordan separation model
-        # forecast_model = forecast.NAM()
 
         for station_index in range(num_sub_stations):
 
@@ -231,7 +224,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                             pv_module, air_mass, tcell_model_parameters, solar_position)
 
                         # Assign results
-                        nc_p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
+                        p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
 
                 # Update the progress bar
                 if progress and rank == 0:
@@ -241,6 +234,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                 early_stopping_count -= 1
 
                 if early_stopping and early_stopping_count == 0:
+                    nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
                     pbar.finish()
                     nc.close()
 
@@ -248,6 +242,9 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                         print("Simulation terminated due to the profiling tool engaged")
 
                     return
+
+        # Write the simulation results with the current scenario to the NetCDF file
+        nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
 
     pbar.finish()
     nc.close()
@@ -260,8 +257,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
 if __name__ == '__main__':
 
     # Get MPI info
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    rank = MPI.COMM_WORLD.rank
 
     welcome_msg = "evergreen -- our pursuit of a more sustainable future"
     nc_message = "an NetCDF file with weather analogs generated by PAnEn (https://weiming-hu.github.io/AnalogsEnsemble/"
@@ -272,15 +268,17 @@ if __name__ == '__main__':
     parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
-    parser.add_argument('--stop', help="Early stop [useful in testing]", action='store_true', default=False)
     parser.add_argument('--stations', default=None, type=int, 
                         help="Limit the number of stations to simulate [useful in testing].")
 
     # Parse arguments
     args = parser.parse_args()
 
+    if not args.silent:
+        print(welcome_msg)
+
     # This is my input NetCDF file generated from Analog Ensemble
-    nc_file =  os.path.expanduser(args.nc)
+    nc_file = os.path.expanduser(args.nc)
 
     """
     Variable Mapping
@@ -326,8 +324,6 @@ if __name__ == '__main__':
 
     # Start a profiler
     if args.profile:
-        args.stop = True
-
         if args.profiler == "yappi":
             import yappi
             yappi.start()
@@ -337,20 +333,40 @@ if __name__ == '__main__':
             profiler = Profiler()
             profiler.start()
 
+        elif args.profiler == "line_profiler":
+            pass
+
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
 
-    if not args.profile and not args.stop:
-        # If no prifiling tools engaged and not early stopping,
-        # this is in operation mode, and then use Cython optimization
-        #
+    if not args.profile:
+        # Use Cython to optimize the code if profiler is not engaged
         import pyximport; pyximport.install()
 
+    # Define function arguments
+    simulator_kwargs = {
+        "nc_file": nc_file,
+        "variable_dict":variable_dict,
+        "scenarios": scenarios,
+        "progress": not args.silent,
+        "max_num_stations": args.stations,
+        "early_stopping": args.profile,
+    }
+
     # Run the simulator
-    run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios,
-                                    progress=not args.silent,
-                                    early_stopping=args.stop,
-                                    max_num_stations=args.stations)
+    if args.profiler == "line_profiler":
+
+        try:
+            @profile
+            def wrapper(**kwargs):
+                run_pv_simulations_with_analogs(**kwargs)
+        except:
+            raise Exception("Failed to create the wrapper function. Did you properly use kernprof ?")
+
+        wrapper(**simulator_kwargs)
+
+    else:
+        run_pv_simulations_with_analogs(**simulator_kwargs)
 
     if args.profile:
         if args.profiler == "yappi":

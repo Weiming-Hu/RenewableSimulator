@@ -26,3 +26,4 @@ release
 UML
 .ycm_extra_conf.py
 *log*
+*.lprof*
