@@ -32,10 +32,11 @@ from Functions import simulate_single_instance, get_start_index, get_end_index
 from Scenarios import Scenarios
 
 # Performance add-ons
-import pyximport; pyximport.install()
 from mpi4py import MPI
 
+import line_profiler
 
+@profile
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
                                     early_stopping=False, max_num_stations=None):
     """
@@ -66,7 +67,8 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     num_procs = comm.Get_size()
 
     if progress and rank == 0:
-        print("{} processes have been started for the simulation")
+        print("Running PV simulation with AnEn ...")
+        print("{} processes have been started for the simulation".format(num_procs))
 
     # Open the NetCDF file
     nc = Dataset(nc_file, "a", parallel=True, comm=comm, info=MPI.Info())
@@ -111,16 +113,14 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # Determine the chunk of stations allocated to this current process
     station_index_start = get_start_index(num_stations, num_procs, rank)
     station_index_end = get_end_index(num_stations, num_procs, rank)
+    if progress:
+        print("Rank #{} processes stations [{}, {}).".format(rank, station_index_start, station_index_end))
 
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
     # If profiling is used, I explicitly terminate the program earlier after certain simulations.
     early_stopping_count = 5
-
-    # Batch run simulations
-    if progress and rank == 0:
-        print("Start PV simulation with AnEn ...")
 
     # Initialize progress bar
     if early_stopping and rank == 0:
@@ -139,6 +139,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     pbar = IncrementalBar("PV simulation rank #{}".format(rank), max=bar_length)
     pbar.suffix = '%(percent).1f%% - %(eta)ds'
 
+    # Batch run simulations
     for scenario_index in range(num_scenarios):
 
         # Extract current scenario
@@ -255,7 +256,9 @@ if __name__ == '__main__':
     parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
-    parser.add_argument('--stations', default=None, help="Limit the number of stations [useful in testing].")
+    parser.add_argument('--stop', help="Early stop [useful in testing]", action='store_true', default=False)
+    parser.add_argument('--stations', default=None, type=int, 
+                        help="Limit the number of stations to simulate [useful in testing].")
 
     # Parse arguments
     args = parser.parse_args()
@@ -307,6 +310,8 @@ if __name__ == '__main__':
 
     # Start a profiler
     if args.profile:
+        args.stop = True
+
         if args.profiler == "yappi":
             import yappi
             yappi.start()
@@ -319,10 +324,16 @@ if __name__ == '__main__':
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
 
+    if not args.profile and not args.stop:
+        # If no prifiling tools engaged and not early stopping,
+        # this is in operation mode, and then use Cython optimization
+        #
+        import pyximport; pyximport.install()
+
     # Run the simulator
     run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios,
                                     progress=not args.silent,
-                                    early_stopping=args.profile,
+                                    early_stopping=args.stop,
                                     max_num_stations=args.stations)
 
     if args.profile:
