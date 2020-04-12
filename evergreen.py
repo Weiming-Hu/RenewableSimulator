@@ -275,7 +275,7 @@ if __name__ == '__main__':
     # Parse arguments
     args = parser.parse_args()
 
-    if not args.silent:
+    if not args.silent and rank == 0:
         print(welcome_msg)
 
     # This is my input NetCDF file generated from Analog Ensemble
