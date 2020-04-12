@@ -32,10 +32,11 @@ from Functions import simulate_single_instance, get_start_index, get_end_index
 from Scenarios import Scenarios
 
 # Performance add-ons
-import pyximport; pyximport.install()
 from mpi4py import MPI
 
+import line_profiler
 
+@profile
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
                                     early_stopping=False, max_num_stations=None):
     """
@@ -66,7 +67,8 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     num_procs = comm.Get_size()
 
     if progress and rank == 0:
-        print("{} processes have been started for the simulation")
+        print("Running PV simulation with AnEn ...")
+        print("{} processes have been started for the simulation".format(num_procs))
 
     # Open the NetCDF file
     if num_procs == 1:
@@ -85,12 +87,6 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     if not all(nc_vars.values()):
         raise Exception("Some variables are not found from the input file ({})".format(nc_file))
 
-    # Extract variables
-    nc_ghi = nc_vars["ghi"]
-    nc_albedo = nc_vars["alb"]
-    nc_wspd = nc_vars["wspd"]
-    nc_tamb = nc_vars["tamb"]
-
     # Determine the dimensions of the problem to simulate
     num_stations = nc.dimensions['num_stations'].size
     num_days = nc.dimensions['num_test_times'].size
@@ -106,7 +102,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                 print("max_num_stations is effectively set to {}".format(max_num_stations))
 
     if progress and rank == 0:
-        dimension_info = "Simulation dimensions:\n" + \
+        dimension_info = "Total simulation dimensions:\n" + \
                          "-- {} scenarios\n".format(num_scenarios) + \
                          "-- {} stations\n".format(num_stations) + \
                          "-- {} test days\n".format(num_days) + \
@@ -118,16 +114,28 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     # Determine the chunk of stations allocated to this current process
     station_index_start = get_start_index(num_stations, num_procs, rank)
     station_index_end = get_end_index(num_stations, num_procs, rank)
+    num_sub_stations = station_index_end - station_index_start
+    if num_sub_stations == 1:
+        msg = "Rank #{} only processes 1 station but at least 2 stations".format(rank)
+        raise Exception(msg)
+
+    # Extract variables for the current stations
+    if progress:
+        print("Rank #{} reading data for stations [{}, {})".format(rank, station_index_start, station_index_end))
+
+    nc_ghi = nc_vars["ghi"][:, :, :, station_index_start:station_index_end]
+    nc_albedo = nc_vars["alb"][:, :, :, station_index_start:station_index_end]
+    nc_wspd = nc_vars["wspd"][:, :, :, station_index_start:station_index_end]
+    nc_tamb = nc_vars["tamb"][:, :, :, station_index_start:station_index_end]
+
+    if progress:
+        print("Rank #{} finished reading data".format(rank))
 
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
     # If profiling is used, I explicitly terminate the program earlier after certain simulations.
     early_stopping_count = 5
-
-    # Batch run simulations
-    if progress and rank == 0:
-        print("Start PV simulation with AnEn ...")
 
     # Initialize progress bar
     if early_stopping and rank == 0:
@@ -146,6 +154,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     pbar = IncrementalBar("PV simulation rank #{}".format(rank), max=bar_length)
     pbar.suffix = '%(percent).1f%% - %(eta)ds'
 
+    # Batch run simulations
     for scenario_index in range(num_scenarios):
 
         # Extract current scenario
@@ -177,7 +186,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         # TODO: Uncomment this if you are using liujordan separation model
         # forecast_model = forecast.NAM()
 
-        for station_index in range(station_index_start, station_index_end):
+        for station_index in range(num_sub_stations):
 
             # Determine the current location
             latitude = nc_vars["lat"][station_index].data
@@ -211,9 +220,9 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                     for analog_index in range(num_analogs):
 
                         # Extra weather forecasts
-                        ghi = nc_ghi[analog_index, lead_time_index, day_index, station_index].data
+                        ghi = nc_ghi[analog_index, lead_time_index, day_index, station_index]
                         albedo = nc_albedo[analog_index, lead_time_index, day_index, station_index] / 100
-                        wspd = nc_wspd[analog_index, lead_time_index, day_index, station_index].data
+                        wspd = nc_wspd[analog_index, lead_time_index, day_index, station_index]
                         tamb = nc_tamb[analog_index, lead_time_index, day_index, station_index] - 273.15
 
                         # Simulate a single instance power output
@@ -263,7 +272,9 @@ if __name__ == '__main__':
     parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
-    parser.add_argument('--stations', default=None, help="Limit the number of stations [useful in testing].")
+    parser.add_argument('--stop', help="Early stop [useful in testing]", action='store_true', default=False)
+    parser.add_argument('--stations', default=None, type=int, 
+                        help="Limit the number of stations to simulate [useful in testing].")
 
     # Parse arguments
     args = parser.parse_args()
@@ -315,6 +326,8 @@ if __name__ == '__main__':
 
     # Start a profiler
     if args.profile:
+        args.stop = True
+
         if args.profiler == "yappi":
             import yappi
             yappi.start()
@@ -327,10 +340,16 @@ if __name__ == '__main__':
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
 
+    if not args.profile and not args.stop:
+        # If no prifiling tools engaged and not early stopping,
+        # this is in operation mode, and then use Cython optimization
+        #
+        import pyximport; pyximport.install()
+
     # Run the simulator
     run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios,
                                     progress=not args.silent,
-                                    early_stopping=args.profile,
+                                    early_stopping=args.stop,
                                     max_num_stations=args.stations)
 
     if args.profile:
