@@ -36,7 +36,8 @@ import pyximport; pyximport.install()
 from mpi4py import MPI
 
 
-def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True, early_stopping=False):
+def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
+                                    early_stopping=False, max_num_stations=None):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -64,6 +65,9 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     rank = comm.Get_rank()
     num_procs = comm.Get_size()
 
+    if progress and rank == 0:
+        print("{} processes have been started for the simulation")
+
     # Open the NetCDF file
     nc = Dataset(nc_file, "a", parallel=True, comm=comm, info=MPI.Info())
 
@@ -87,9 +91,12 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     num_analogs = nc.dimensions['num_analogs'].size
     num_scenarios = scenarios.total_scenarios()
 
-    # Determine the chunk of stations allocated to this current process
-    station_index_start = get_start_index(num_stations, num_procs, rank)
-    station_index_end = get_end_index(num_stations, num_procs, rank)
+    if max_num_stations is not None:
+        if max_num_stations < num_stations:
+            num_stations = max_num_stations
+
+            if rank == 0:
+                print("max_num_stations is effectively set to {}".format(max_num_stations))
 
     if progress and rank == 0:
         dimension_info = "Simulation dimensions:\n" + \
@@ -100,6 +107,10 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                          "-- {} analog memebrs\n".format(num_analogs) + \
                          "-- {} processes".format(num_procs)
         print(dimension_info)
+
+    # Determine the chunk of stations allocated to this current process
+    station_index_start = get_start_index(num_stations, num_procs, rank)
+    station_index_end = get_end_index(num_stations, num_procs, rank)
 
     # Initialize the array dimensions
     array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
@@ -244,6 +255,7 @@ if __name__ == '__main__':
     parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
+    parser.add_argument('--stations', default=None, help="Limit the number of stations [useful in testing].")
 
     # Parse arguments
     args = parser.parse_args()
@@ -310,7 +322,8 @@ if __name__ == '__main__':
     # Run the simulator
     run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios,
                                     progress=not args.silent,
-                                    early_stopping=args.profile)
+                                    early_stopping=args.profile,
+                                    max_num_stations=args.stations)
 
     if args.profile:
         if args.profiler == "yappi":
