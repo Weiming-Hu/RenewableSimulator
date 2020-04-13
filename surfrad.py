@@ -13,6 +13,10 @@
 # The Pennsylvania State University
 #
 
+# Built-in python modules
+import os
+import argparse
+
 # Scientific python add-ons
 import yaml
 import numpy as np
@@ -106,27 +110,55 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
 
 if __name__ == '__main__':
 
-    welcome_msg = "Simulate PV power supply with data from SURFRAD"
-    print(welcome_msg)
+    scenario_message = "A dictionary defines key values for scenarios"
+    welcome_msg = "Simulate PV power supply with data from SURFRAD as ground truth. " + \
+        "To successfully run this program, you need to provide the folder root to your data." + \
+        "It is assumed that SURFRAD data files (*.dat) are organized in <root folder>/<location>/<year>, " + \
+        "e.g. /Volumes/WD3TB/SURFRAD/extracted/Boulder_CO/2018"
 
-    # Print progress information
-    progress = True
+    # Define arguments
+    parser = argparse.ArgumentParser(description=welcome_msg)
+    parser.add_argument('--root', help="Root data folder", required=False, default="/Volumes/WD3TB/SURFRAD/extracted")
+    parser.add_argument('--output', help="Output data folder", required=False, default="SURFRAD")
+    parser.add_argument('--scenario', help=scenario_message, required=False, default="scenarios.yaml")
+    parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
 
-    # Read scenarios
-    with open("scenarios.yaml") as f:
+    # Parse arguments
+    args = parser.parse_args()
+
+    if not args.silent:
+        print(welcome_msg)
+
+    # Read YAML files
+    with open(args.scenario) as f:
         scenarios = yaml.load(f, Loader=yaml.FullLoader)
 
     # Create an object of the class Scenarios
     scenarios = Scenarios(scenarios)
 
-    # Define the year data folder
-    year_folder = "/Volumes/WD3TB/SURFRAD/Penn_State_PA/2018"
+    # Expand user folder if needed
+    root_folder = os.path.expanduser(args.root)
 
-    # Define the output prefix
-    output_file_prefix = "PSU"
+    # Walk through each location and each year folder to simulation
+    simulation_folders = []
+    for location in os.listdir(root_folder):
+        for year in os.listdir(os.path.join(root_folder, location)):
+            simulation_folders.append(os.path.join(root_folder, location, year))
 
-    run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, progress)
+    if len(simulation_folders) == 0:
+        msg = "No <location>/<year> folders found. Did you set the correct root folder ({}) ?".format(root_folder)
+        raise Exception(msg)
 
-    if progress:
+    if not args.silent:
+        print("The following simulations will be carried out:\n" + '\n'.join(simulation_folders))
+
+    for simulation_folder in simulation_folders:
+        if not args.silent:
+            print("Simulating {} ...".format(simulation_folder))
+
+        output_file_prefix = '-'.join(simulation_folder.split('/')[-2:])
+        run_pv_simulation_with_surfrad(output_file_prefix, scenarios, simulation_folder, not args.silent)
+
+    if not args.silent:
         print("Simulation with SURFRAD data is complete!")
 
