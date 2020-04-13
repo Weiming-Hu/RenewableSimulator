@@ -94,7 +94,7 @@ def read_hourly_SURFRAD(folder, progress=True):
     meta = None
 
     if progress:
-        print("Reading data from folder {}".format(folder))
+        print("Reading data from folder {} ...".format(folder))
 
     # Initialize a progress bar
     pbar = IncrementalBar("Reading files", max=len(all_files))
@@ -138,7 +138,7 @@ def simulate_single_instance(ghi, dni_extra, tamb, wspd, albedo, current_time, s
 
     # Skip any simulation if the ghi is zero
     if ghi == 0:
-        return {"i_sc": 0, "i_mp": 0, "v_oc": 0, "v_mp": 0, "p_mp": 0, "i_x": 0, "i_xx": 0}
+        return {"i_sc": [0], "i_mp": [0], "v_oc": [0], "v_mp": [0], "p_mp": [0], "i_x": [0], "i_xx": [0]}
 
     # Decompose DNI from GHI
     #

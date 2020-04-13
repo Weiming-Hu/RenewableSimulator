@@ -43,11 +43,8 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
     num_scenarios = scenarios.total_scenarios()
 
     # Initialize a progress bar
-    pbar = IncrementalBar("PV simulation with SURFRAD", max=yearly_data.shape[0] * num_scenarios)
+    pbar = IncrementalBar("PV simulation", max=yearly_data.shape[0] * num_scenarios)
     pbar.suffix = '%(percent).1f%% - %(eta)ds'
-
-    if progress:
-        print("Start PV simulation with SURFRAD ...")
 
     for scenario_index in range(num_scenarios):
 
@@ -107,6 +104,8 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
     if progress:
         pbar.finish()
 
+    return meta
+
 
 if __name__ == '__main__':
 
@@ -126,8 +125,14 @@ if __name__ == '__main__':
     # Parse arguments
     args = parser.parse_args()
 
-    if not args.silent:
-        print(welcome_msg)
+    # Check output folder
+    if os.path.exists(args.output):
+        if os.path.isdir(args.output):
+            print("Output folder {} exists. Contents will be overwritten!".format(args.output))
+        else:
+            raise Exception('{} is not a folder'.format(args.output))
+    else:
+        os.makedirs(args.output)
 
     # Read YAML files
     with open(args.scenario) as f:
@@ -141,9 +146,9 @@ if __name__ == '__main__':
 
     # Walk through each location and each year folder to simulation
     simulation_folders = []
-    for location in os.listdir(root_folder):
-        for year in os.listdir(os.path.join(root_folder, location)):
-            simulation_folders.append(os.path.join(root_folder, location, year))
+    for place in os.listdir(root_folder):
+        for year in os.listdir(os.path.join(root_folder, place)):
+            simulation_folders.append(os.path.join(root_folder, place, year))
 
     if len(simulation_folders) == 0:
         msg = "No <location>/<year> folders found. Did you set the correct root folder ({}) ?".format(root_folder)
@@ -152,12 +157,23 @@ if __name__ == '__main__':
     if not args.silent:
         print("The following simulations will be carried out:\n" + '\n'.join(simulation_folders))
 
+    coords = pd.DataFrame(index=["latitude", "longitude"])
+
     for simulation_folder in simulation_folders:
         if not args.silent:
             print("Simulating {} ...".format(simulation_folder))
 
-        output_file_prefix = '-'.join(simulation_folder.split('/')[-2:])
-        run_pv_simulation_with_surfrad(output_file_prefix, scenarios, simulation_folder, not args.silent)
+        # Use the location and the year as the prefix
+        output_file_prefix = os.path.join(args.output, '-'.join(simulation_folder.split('/')[-2:]))
+
+        # Catch the meta information
+        meta = run_pv_simulation_with_surfrad(output_file_prefix, scenarios, simulation_folder, not args.silent)
+
+        # Record the location
+        coords[meta["name"]] = [meta["latitude"], meta["longitude"]]
+
+    # Write coordinates to CSV
+    coords.to_csv(os.path.join(args.output, 'coordinates.csv'))
 
     if not args.silent:
         print("Simulation with SURFRAD data is complete!")
