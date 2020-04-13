@@ -68,14 +68,6 @@ python evergreen.py --profile --profiler pyinstrument --station 2
 
 ### line_profiler
 
-You need to add/uncomment the following line in the source code `evergreen.py`:
-
-```python
-@profile
-```
-
-And then run
-
 ```shell script
 # Run the program through the profiler
 kernprof -l evergreen.py --profile --profiler line_profiler --stations 2
