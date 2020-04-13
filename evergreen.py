@@ -336,10 +336,6 @@ if __name__ == '__main__':
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
 
-    if not args.profile:
-        # Use Cython to optimize the code if profiler is not engaged
-        import pyximport; pyximport.install()
-
     # Run the simulator
     run_pv_simulations_with_analogs(
         nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios,

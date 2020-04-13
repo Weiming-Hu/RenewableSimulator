@@ -31,7 +31,6 @@ These packages are required by this project:
 - `netCDF4`
 - `pvlib`
 - `progress`
-- `Cython`
 - `mpi4py`
 
 The following modules are only required during profiling:
