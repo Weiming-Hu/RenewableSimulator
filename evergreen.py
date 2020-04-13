@@ -81,13 +81,6 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
 
     nc = Dataset(nc_file, "a", parallel=parallel_netcdf, comm=comm, info=MPI.Info())
 
-    # Read variables as a dictionary
-    nc_vars = {key:nc.variables.get(value) for (key, value) in variable_dict.items()}
-
-    # Sanity check to make sure that all variables are present and read successfully
-    if not all(nc_vars.values()):
-        raise Exception("Some variables are not found from the input file ({})".format(nc_file))
-
     # Determine the dimensions of the problem to simulate
     num_stations = nc.dimensions['num_stations'].size
     num_days = nc.dimensions['num_test_times'].size
@@ -124,10 +117,17 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     if progress:
         print("Rank #{} reading data from stations [{}, {})".format(rank, station_index_start, station_index_end))
 
-    nc_ghi = nc_vars["ghi"][:, :, :, station_index_start:station_index_end]
-    nc_albedo = nc_vars["alb"][:, :, :, station_index_start:station_index_end]
-    nc_wspd = nc_vars["wspd"][:, :, :, station_index_start:station_index_end]
-    nc_tamb = nc_vars["tamb"][:, :, :, station_index_start:station_index_end]
+    # These are high dimensional arrays
+    nc_ghi = nc.variables[variable_dict["ghi"]][:, :, :, station_index_start:station_index_end]
+    nc_albedo = nc.variables[variable_dict["alb"]][:, :, :, station_index_start:station_index_end]
+    nc_wspd = nc.variables[variable_dict["wspd"]][:, :, :, station_index_start:station_index_end]
+    nc_tamb = nc.variables[variable_dict["tamb"]][:, :, :, station_index_start:station_index_end]
+    
+    # These are single dimensional vectors
+    nc_lat = nc.variables[variable_dict["lat"]][:]
+    nc_lon = nc.variables[variable_dict["lon"]][:]
+    nc_day = nc.variables[variable_dict["date"]][:]
+    nc_flt = nc.variables[variable_dict["flt"]][:]
 
     if progress:
         print("Rank #{} finished reading data".format(rank))
@@ -183,17 +183,13 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         for station_index in range(num_sub_stations):
 
             # Determine the current location
-            latitude = nc_vars["lat"][station_index].data
-            longitude = nc_vars["lon"][station_index].data
-
-            current_location = location.Location(latitude=latitude, longitude=longitude)
+            current_location = location.Location(latitude=nc_lat[station_index], longitude=nc_lon[station_index])
 
             for day_index in range(num_days):
-
                 for lead_time_index in range(num_lead_times):
 
                     # Determine the current time
-                    current_posix = nc_vars["date"][day_index] + nc_vars["flt"][lead_time_index]
+                    current_posix = nc_day[day_index] + nc_flt[lead_time_index]
                     current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
 
                     # Calculate sun position
