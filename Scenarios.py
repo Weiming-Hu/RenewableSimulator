@@ -73,3 +73,28 @@ class Scenarios(dict):
         from pprint import pprint
         print("There are {} scenarios defined by the current dictionary.".format(self.total_scenarios()))
         pprint(self)
+
+    def write_all(self, file, overwrite=True):
+        import os
+        import yaml
+
+        # Check output file
+        if os.path.exists(file):
+            if overwrite:
+                os.remove(file)
+            else:
+                raise Exception("Output file {} exists and overwriting is not permitted".format(file))
+
+        # Initialize a dictionary
+        scenarios_dict = {}
+
+        # Convert scenarios to dictionary with names
+        for scenario_index in range(self.total_scenarios()):
+
+            # Get the current scenario and the name
+            scenario_name = 'scenario_{:05d}'.format(scenario_index)
+            scenarios_dict[scenario_name] = self.get_scenario(scenario_index)
+
+        # Write the current scenario
+        with open(file, 'w') as f:
+            yaml.dump(scenarios_dict, f)

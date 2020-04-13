@@ -175,6 +175,9 @@ if __name__ == '__main__':
     # Write coordinates to CSV
     coords.to_csv(os.path.join(args.output, 'coordinates.csv'))
 
+    # Write scenarios to YAML
+    scenarios.write_all(os.path.join(args.output, 'scenarios.yaml'))
+
     if not args.silent:
         print("Simulation with SURFRAD data is complete!")
 
