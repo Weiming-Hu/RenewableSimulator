@@ -14,8 +14,9 @@
 #
 
 # Scientific python add-ons
-import pandas as pd
+import yaml
 import numpy as np
+import pandas as pd
 from pvlib import location, atmosphere, temperature, pvsystem, irradiance
 
 # Visualization add-ons
@@ -111,14 +112,12 @@ if __name__ == '__main__':
     # Print progress information
     progress = True
 
-    # Initialization. Do not remove.
-    scenarios = Scenarios()
+    # Read scenarios
+    with open("scenarios.yaml") as f:
+        scenarios = yaml.load(f, Loader=yaml.FullLoader)
 
-    # Change values of keys as you want
-    scenarios["surface_tilt"] = [0]
-    scenarios["surface_azimuth"] = [180]
-    scenarios["tcell_model_parameters"] = ["open_rack_glass_glass"]
-    scenarios["pv_module"] = ["Silevo_Triex_U300_Black__2014_"]
+    # Create an object of the class Scenarios
+    scenarios = Scenarios(scenarios)
 
     # Define the year data folder
     year_folder = "/Volumes/WD3TB/SURFRAD/Penn_State_PA/2018"

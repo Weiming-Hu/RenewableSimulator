@@ -1,0 +1,29 @@
+# "`-''-/").___..--''"`-._
+#  (`6_ 6  )   `-.  (     ).`-.__.`)   WE ARE ...
+#  (_Y_.)'  ._   )  `._ `. ``-..-'    PENN STATE!
+#    _ ..`--'_..-_/  /--'_.' ,'
+#  (il),-''  (li),'  ((!.-'
+#
+# Author:
+#
+#     Weiming Hu <weiming@psu.edu>
+#
+# Geoinformatics and Earth Observation Laboratory (http://geolab.psu.edu)
+# Department of Geography and Institute for CyberScience
+# The Pennsylvania State University
+#
+#
+# Do not modify the keys. Only modify the values.
+#
+
+surface_tilt:
+  - 0
+
+surface_azimuth:
+  - 180
+
+tcell_model_parameters:
+  - open_rack_glass_glass
+
+pv_module:
+  - Silevo_Triex_U300_Black__2014_

@@ -32,6 +32,7 @@ These packages are required by this project:
 - `pvlib`
 - `progress`
 - `mpi4py`
+- `pyyaml`
 
 The following modules are only required during profiling:
 
