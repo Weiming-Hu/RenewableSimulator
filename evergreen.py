@@ -35,7 +35,6 @@ from Scenarios import Scenarios
 from mpi4py import MPI
 
 
-# @profile
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
                                     max_num_stations=None, early_stopping=False,
                                     early_stopping_count=5):
@@ -331,7 +330,11 @@ if __name__ == '__main__':
             profiler.start()
 
         elif args.profiler == "line_profiler":
-            pass
+            try:
+                # Use the decorator from kernprof to profile the main simulation function
+                run_pv_simulations_with_analogs = profile(run_pv_simulations_with_analogs)
+            except:
+                raise Exception("Failed with function decorating. Did you properly use kernprof ?")
 
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
