@@ -57,9 +57,10 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
             current_scenario["tcell_model_parameters"]]
         pv_module = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
 
-        # Initialize empty list for simulated maximum power
-        p_mp = ['MaximumPowerOutput']
-        times = ['Time']
+        # Initialize empty data frame
+        output_df = pd.DataFrame(columns=("Time", "MaximumPowerOutput",
+                                          "GHI", "AmbientTemperature",
+                                          "WindSpeed", "Albedo"))
 
         for row_index in range(yearly_data.shape[0]):
 
@@ -76,7 +77,6 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
             # Get current time
             datetime_str = '/'.join([str(int(x)) for x in current_row[['year', 'month', 'day', 'hour', 'minute']]])
             current_time = pd.to_datetime(datetime_str, format="%Y/%m/%d/%H/%M")
-            times.append(current_time.strftime(format = "%Y-%m-%d-%H-%M"))
 
             # Calculate sun position
             solar_position = current_location.get_solarposition(current_time)
@@ -93,13 +93,22 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
                 pv_module, air_mass, tcell_model_parameters, solar_position)
 
             # Store results
-            p_mp.append(sapm_out["p_mp"][0])
+            new_row = {
+                "Time": current_time.strftime(format = "%Y-%m-%d-%H-%M"),
+                "MaximumPowerOutput": sapm_out["p_mp"][0],
+                "GHI": ghi,
+                "AmbientTemperature": tamb,
+                "WindSpeed": wspd,
+                "Albedo": albedo
+            }
+
+            output_df = output_df.append(new_row, ignore_index=True)
 
             if progress:
                 pbar.next()
 
-        np.savetxt(output_file_prefix + "_scenario-{:05d}.csv".format(scenario_index),
-                   [p for p in zip(times, p_mp)], delimiter=',', fmt='%s')
+        # Write the current data frame to a CSV file
+        output_df.to_csv(output_file_prefix + "_scenario-{:05d}.csv".format(scenario_index))
 
     if progress:
         pbar.finish()
