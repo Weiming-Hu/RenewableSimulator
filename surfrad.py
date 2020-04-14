@@ -70,12 +70,15 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
             tamb = current_row['temp_air']
             wspd = current_row['wind_speed']
 
-            albedo = np.nan
+            albedo = 0
             if ghi > 0:
                 albedo = current_row['uw_solar'] / current_row['ghi']
 
+            # Constrain albedo
             if albedo > 1:
                 albedo = 1
+            if albedo < 0:
+                albedo = 0
 
             # Get current time
             datetime_str = '/'.join([str(int(x)) for x in current_row[['year', 'month', 'day', 'hour', 'minute']]])
