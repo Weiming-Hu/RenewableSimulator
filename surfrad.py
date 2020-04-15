@@ -143,6 +143,9 @@ if __name__ == '__main__':
 
     # Parse arguments
     args = parser.parse_args()
+    
+    args.output = os.path.expanduser(args.output)
+    args.root = os.path.expanduser(args.root)
 
     # Check output folder
     if os.path.exists(args.output):
@@ -154,7 +157,7 @@ if __name__ == '__main__':
         os.makedirs(args.output)
 
     # Read YAML files
-    with open(args.scenario) as f:
+    with open(os.path.expanduser(args.scenario)) as f:
         scenarios = yaml.load(f, Loader=yaml.FullLoader)
 
     # Create an object of the class Scenarios
