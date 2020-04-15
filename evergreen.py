@@ -148,8 +148,14 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     else:
         bar_length = num_scenarios * num_stations * num_days
 
-    pbar = IncrementalBar("PV simulation rank #{}".format(rank), max=bar_length)
-    pbar.suffix = '%(percent).1f%% - %(eta)ds'
+    if progress:
+        if num_procs == 1:
+            pbar = IncrementalBar("PV simulation rank #{}".format(rank), max=bar_length)
+            pbar.suffix = '%(percent).1f%% - %(eta)ds'
+        else:
+            progress_threshold = bar_length / 100
+            progress_value = 0
+            progress_count = 0
 
     # Batch run simulations
     for scenario_index in range(num_scenarios):
@@ -221,19 +227,28 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                             pv_module, air_mass, tcell_model_parameters, solar_position)
 
                         # Assign results
-                        p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
+                        p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"][0]
 
                 # Update the progress bar
-                if progress and rank == 0:
-                    pbar.next()
+                if progress:
+                    if num_procs == 1:
+                        pbar.next()
+                    else:
+                        progress_count += 1
+                        if progress_count > progress_threshold:
+                            progress_count = 0
+                            progress_value += 1
+                            print("Rank #{} finished {}% ...".format(rank, progress_value))
 
                 # Subtract 1 from early stopping counter
                 early_stopping_count -= 1
 
                 if early_stopping and early_stopping_count == 0:
                     nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
-                    pbar.finish()
                     nc.close()
+
+                    if num_procs == 1:
+                        pbar.finish()
 
                     if progress and rank == 0:
                         print("Simulation terminated due to the profiling tool engaged")
@@ -243,8 +258,10 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         # Write the simulation results with the current scenario to the NetCDF file
         nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
 
-    pbar.finish()
     nc.close()
+
+    if num_procs == 1:
+        pbar.finish()
 
     if progress and rank == 0:
         print("PV simulation is complete!")
