@@ -60,7 +60,8 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
         # Initialize empty data frame
         output_df = pd.DataFrame(columns=("Time", "MaximumPowerOutput",
                                           "GHI", "AmbientTemperature",
-                                          "WindSpeed", "Albedo"))
+                                          "WindSpeed", "Albedo", "UpwardSolar",
+                                          "DNI", "DHI"))
 
         for row_index in range(yearly_data.shape[0]):
 
@@ -105,7 +106,10 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
                 "GHI": ghi,
                 "AmbientTemperature": tamb,
                 "WindSpeed": wspd,
-                "Albedo": albedo
+                "Albedo": albedo,
+                "UpwardSolar": current_row['uw_solar'],
+                "DNI": current_row['dni'],
+                "DHI": current_row['dhi'],
             }
 
             output_df = output_df.append(new_row, ignore_index=True)
