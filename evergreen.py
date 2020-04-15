@@ -292,7 +292,7 @@ if __name__ == '__main__':
     
     Only change the values to the existing variable names in your weather analog files. 
     """
-    with open(args.map) as f:
+    with open(os.path.expanduser(args.map)) as f:
         variable_dict = yaml.load(f, Loader=yaml.FullLoader)
 
 
@@ -308,7 +308,7 @@ if __name__ == '__main__':
     Values must be a sequence-list type, e.g. a list or a tuple.
     """
     # Read the YAML file
-    with open(args.scenario) as f:
+    with open(os.path.expanduser(args.scenario)) as f:
         scenarios = yaml.load(f, Loader=yaml.FullLoader)
 
     # Convert dictionary to Scenarios
