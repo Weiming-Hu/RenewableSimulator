@@ -42,7 +42,9 @@ The following modules are only required during profiling:
 
 ## Usage
 
-You can use the following code to see the available options:
+For your reference, [Here](https://github.com/Weiming-Hu/RenewableSimulator/issues/2) is a collection of scripts to prepare the environment on HPC platforms.
+
+Once you have the environment set up, you can use the following code to see the available options:
 
 ```shell script
 python evergreen.py -h
