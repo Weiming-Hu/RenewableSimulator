@@ -202,7 +202,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                     #
                     # TODO: What is the relation between solar position and air pressure?
                     #
-                    solar_position = current_location.get_solarposition(current_time)
+                    solar_position = current_location.get_solarposition(current_time, method="nrel_numba")
 
                     # Calculate extraterrestrial DNI
                     #

@@ -33,6 +33,7 @@ These packages are required by this project:
 - `progress`
 - `mpi4py`
 - `pyyaml`
+- `numba`
 
 The following modules are only required during profiling:
 
