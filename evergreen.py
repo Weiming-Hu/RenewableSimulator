@@ -37,8 +37,8 @@ from mpi4py import MPI
 
 
 def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
-                                    max_num_stations=None, early_stopping=False,
-                                    early_stopping_count=5):
+                                    max_num_stations=None, solar_position_method="nrel_numpy",
+                                    early_stopping=False, early_stopping_count=5):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -202,7 +202,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                     #
                     # TODO: What is the relation between solar position and air pressure?
                     #
-                    solar_position = current_location.get_solarposition(current_time, method="nrel_numba")
+                    solar_position = current_location.get_solarposition(current_time, method=solar_position_method)
 
                     # Calculate extraterrestrial DNI
                     #
@@ -284,6 +284,7 @@ if __name__ == '__main__':
     parser.add_argument('--map', help=map_message, required=False, default="variable-map.yaml")
     parser.add_argument('--scenario', help=scenario_message, required=False, default="scenarios.yaml")
     parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
+    parser.add_argument('--solar', help="Method for solar position calculation", default="nrel_numpy")
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
     parser.add_argument('--stations', default=None, type=int, 
@@ -355,7 +356,8 @@ if __name__ == '__main__':
     # Run the simulator
     run_pv_simulations_with_analogs(
         nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios,
-        progress=not args.silent, max_num_stations=args.stations, early_stopping=args.profile)
+        progress=not args.silent, max_num_stations=args.stations, 
+        solar_position_method=args.solar, early_stopping=args.profile)
 
     if args.profile:
         if args.profiler == "yappi":
