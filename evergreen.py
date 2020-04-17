@@ -79,13 +79,18 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
         parallel_netcdf = True
 
     # nc = Dataset(nc_file, "a", parallel=parallel_netcdf, comm=comm, info=MPI.Info())
+    if progress:
+        print("Input file is {}".format(nc_file))
     nc = Dataset(nc_file, "a", parallel=parallel_netcdf)
 
     # Determine the dimensions of the problem to simulate
     num_stations = nc.dimensions['num_stations'].size
-    num_days = nc.dimensions['num_test_times'].size
-    num_lead_times = nc.dimensions['num_flts'].size
-    num_analogs = nc.dimensions['num_analogs'].size
+    # num_days = nc.dimensions['num_test_times'].size
+    # num_lead_times = nc.dimensions['num_flts'].size
+    # num_analogs = nc.dimensions['num_analogs'].size
+    num_days = 8
+    num_lead_times = 1
+    num_analogs = 1
     num_scenarios = scenarios.total_scenarios()
 
     # If the max number of stations is defined, constrain the number of total stations to simulate
@@ -244,7 +249,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                 early_stopping_count -= 1
 
                 if early_stopping and early_stopping_count == 0:
-                    nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
+                    nc_p_mp[0, 0, 0:8, station_index_start:station_index_end] = p_mp
                     nc.close()
 
                     if num_procs == 1:
@@ -256,7 +261,7 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
                     return
 
         # Write the simulation results with the current scenario to the NetCDF file
-        nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
+        nc_p_mp[0, 0, 0:8, station_index_start:station_index_end] = p_mp
 
     nc.close()
 
@@ -357,7 +362,7 @@ if __name__ == '__main__':
     run_pv_simulations_with_analogs(
         nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios,
         progress=not args.silent, max_num_stations=args.stations, 
-        solar_position_method=args.solar, early_stopping=args.profile)
+        solar_position_method=args.solar)
 
     if args.profile:
         if args.profiler == "yappi":
