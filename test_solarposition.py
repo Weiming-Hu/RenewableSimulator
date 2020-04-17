@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     welcome_msg = "Test get_solarposition"
     parser = argparse.ArgumentParser(description=welcome_msg)
-    parser.add_argument('--iterations', type=int, default='1000')
+    parser.add_argument('--iterations', type=int, default=1000)
     parser.add_argument('--method', default='nrel_numpy')
 
     args = parser.parse_args()
