@@ -108,12 +108,18 @@ def run_pv_simulations_with_analogs(
     if progress:
         print("Rank #{} reading data from stations [{}, {})".format(rank, station_index_start, station_index_end))
 
-    # These are high dimensional arrays
-    nc_ghi = nc.variables[variable_dict["ghi"]][0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    nc_albedo = nc.variables[variable_dict["alb"]][0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    nc_wspd = nc.variables[variable_dict["wspd"]][0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    nc_tamb = nc.variables[variable_dict["tamb"]][0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    
+    # These are high dimensional variables
+    nc_ghi = nc.variables[variable_dict["ghi"]]
+    nc_albedo = nc.variables[variable_dict["alb"]]
+    nc_wspd = nc.variables[variable_dict["wspd"]]
+    nc_tamb = nc.variables[variable_dict["tamb"]]
+
+    # Actually read the subset of values
+    nc_ghi = nc_ghi[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start: station_index_end]
+    nc_albedo = nc_albedo[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start: station_index_end]
+    nc_wspd = nc_wspd[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start: station_index_end]
+    nc_tamb = nc_tamb[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start: station_index_end]
+
     # These are single dimensional vectors
     nc_lat = nc.variables[variable_dict["lat"]][0:num_stations]
     nc_lon = nc.variables[variable_dict["lon"]][0:num_stations]
