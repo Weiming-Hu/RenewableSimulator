@@ -13,12 +13,13 @@
 # The Pennsylvania State University
 #
 
-import pandas as pd
 import math
+import numpy as np
+import pandas as pd
 
 from os import listdir, path
 from progress.bar import IncrementalBar
-from pvlib import pvsystem, irradiance, iotools
+from pvlib import pvsystem, irradiance, iotools, location, atmosphere
 
 
 def get_start_index(total, num_procs, rank):
@@ -75,7 +76,7 @@ def get_sub_total(total, num_procs, rank):
     return get_end_index(total, num_procs, rank) - get_start_index(total, num_procs, rank) + 1
 
 
-def read_hourly_SURFRAD(folder, progress=True):
+def read_hourly_surfrad(folder, progress=True):
     """
     Reads only the hourly data from the daily data files from the input folder. It is assumed that all files in the
     folder belong to the same location.
@@ -130,55 +131,139 @@ def read_hourly_SURFRAD(folder, progress=True):
     return hourly_data, meta
 
 
-def simulate_single_instance(ghi, dni_extra, tamb, wspd, albedo, current_time, surface_tilt, surface_azimuth,
-                             pv_module, air_mass, tcell_model_parameters, solar_position):
+def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="nrel_numpy", silent=False):
     """
-    Simulates PV energy production for a single instance at a single location for one timestamp.
+    Simulations from each input sun position and each input time.
+    """
+    assert (len(lats) == len(lons)), "Numbers of latitudes and longitudes are not consistent"
+
+    # The dimension of the simulation
+    num_days = len(days)
+    num_lead_times = len(lead_times)
+    num_stations = len(lons)
+
+    # Initialize a progress bar
+    if not silent:
+        pbar = IncrementalBar("Sun position silumations", max=num_stations)
+        pbar.suffix = '%(percent).1f%% - %(eta)ds'
+
+    # Initialize output variables
+    keys = ["dni_extra", "air_mass", "zenith", "apparent_zenith", "azimuth"]
+    sky_dict = {key: np.zeros((num_lead_times, num_days, num_stations)) for key in keys}
+
+    for station_index in range(num_stations):
+
+        # Determine the current location
+        current_location = location.Location(latitude=lats[station_index], longitude=lons[station_index])
+
+        for day_index in range(num_days):
+            for lead_time_index in range(num_lead_times):
+
+                # Determine the current time
+                current_posix = days[day_index] + lead_times[lead_time_index]
+                current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
+
+                # Calculate sun position
+                solar_position = current_location.get_solarposition(current_time, method=solar_position_method)
+
+                # Calculate extraterrestrial DNI
+                sky_dict["dni_extra"][lead_time_index, day_index, station_index] = \
+                    irradiance.get_extra_radiation(current_time)
+
+                # Calculate air mass
+                sky_dict["air_mass"][lead_time_index, day_index, station_index] =\
+                    atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
+
+                # Store other keys
+                sky_dict["zenith"][lead_time_index, day_index, station_index] = solar_position["zenith"]
+                sky_dict["apparent_zenith"][lead_time_index, day_index, station_index] = solar_position["apparent_zenith"]
+                sky_dict["azimuth"][lead_time_index, day_index, station_index] = solar_position["azimuth"]
+
+        if not silent:
+            pbar.next()
+
+    if not silent:
+        pbar.finish()
+
+    return sky_dict
+
+
+def simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, days, lead_times, sky_dict,
+                   surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, silent):
+    """
+    Simulates PV energy production
     """
 
-    # Skip any simulation if the ghi is zero
-    if ghi == 0:
-        return {"i_sc": [0], "i_mp": [0], "v_oc": [0], "v_mp": [0], "p_mp": [0], "i_x": [0], "i_xx": [0]}
+    # Determine the dimensions
+    num_analogs = ghi_arr.shape[0]
+    num_lead_times = ghi_arr.shape[1]
+    num_days = ghi_arr.shape[2]
+    num_stations = ghi_arr.shape[3]
 
-    # Decompose DNI from GHI
-    #
-    # TODO: There are different separation models.
-    #
-    dni_dict = irradiance.disc(ghi, solar_position["zenith"], current_time)
-    # dni_dict = irradiance.erbs(ghi, solar_position["zenith"], current_time)
+    # Initialization
+    p_mp = np.zeros((num_analogs, num_lead_times, num_days, num_stations))
 
-    dni = dni_dict["dni"]
+    if not silent:
+        pbar = IncrementalBar("Power scenario simulation", max=num_stations)
+        pbar.suffix = '%(percent).1f%% - %(eta)ds'
 
-    # Calculate POA sky diffuse
-    #
-    # TODO: There are different models to estimate diffuse radiation.
-    #
-    poa_sky_diffuse = irradiance.haydavies(
-        surface_tilt, surface_azimuth, ghi, dni, dni_extra,
-        solar_position["apparent_zenith"], solar_position["azimuth"])
+    for station_index in range(num_stations):
+        for day_index in range(num_days):
+            for lead_time_index in range(num_lead_times):
+                for analog_index in range(num_analogs):
 
-    # Calculate POA ground diffuse
-    #
-    # TODO: There are different ground surface types.
-    #
-    poa_ground_diffuse = irradiance.get_ground_diffuse(surface_tilt, ghi, albedo)
+                    ghi = ghi_arr[analog_index, lead_time_index, day_index, station_index]
 
-    # Calculate angle of incidence
-    aoi = irradiance.aoi(surface_tilt, surface_azimuth, solar_position["apparent_zenith"], solar_position["azimuth"])
+                    if ghi != 0:
+                        albedo = albedo_arr[analog_index, lead_time_index, day_index, station_index]
+                        wspd = wspd_arr[analog_index, lead_time_index, day_index, station_index]
+                        tamb = tamb_arr[analog_index, lead_time_index, day_index, station_index]
+                        air_mass = sky_dict["air_mass"][lead_time_index, day_index, station_index]
+                        dni_extra = sky_dict["dni_extra"][lead_time_index, day_index, station_index]
+                        zenith = sky_dict["zenith"][lead_time_index, day_index, station_index]
+                        apparent_zenith = sky_dict["apparent_zenith"][lead_time_index, day_index, station_index]
+                        azimuth = sky_dict["azimuth"][lead_time_index, day_index, station_index]
 
-    # Calculate POA total
-    poa_irradiance = irradiance.poa_components(aoi, dni, poa_sky_diffuse, poa_ground_diffuse)
+                        # Determine the current time
+                        current_posix = days[day_index] + lead_times[lead_time_index]
+                        current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
 
-    # Calculate cell temperature
-    tcell = pvsystem.temperature.sapm_cell(
-        poa_irradiance['poa_global'], tamb, wspd,
-        tcell_model_parameters['a'], tcell_model_parameters['b'], tcell_model_parameters["deltaT"])
+                        # Decompose DNI from GHI
+                        dni_dict = irradiance.disc(ghi, zenith, current_time)
+                        dni = dni_dict["dni"]
 
-    # Calculate effective irradiance
-    effective_irradiance = pvsystem.sapm_effective_irradiance(
-        poa_irradiance.poa_direct, poa_irradiance.poa_diffuse, air_mass, aoi, pv_module)
+                        # Calculate POA sky diffuse
+                        poa_sky_diffuse = irradiance.haydavies(
+                            surface_tilt, surface_azimuth, ghi, dni, dni_extra, apparent_zenith, azimuth)
 
-    # Calculate power
-    sapm_out = pvsystem.sapm(effective_irradiance, tcell, pv_module)
+                        # Calculate POA ground diffuse
+                        poa_ground_diffuse = irradiance.get_ground_diffuse(surface_tilt, ghi, albedo)
 
-    return sapm_out
+                        # Calculate angle of incidence
+                        aoi = irradiance.aoi(surface_tilt, surface_azimuth, apparent_zenith, azimuth)
+
+                        # Calculate POA total
+                        poa_irradiance = irradiance.poa_components(aoi, dni, poa_sky_diffuse, poa_ground_diffuse)
+
+                        # Calculate cell temperature
+                        tcell = pvsystem.temperature.sapm_cell(
+                            poa_irradiance['poa_global'], tamb, wspd, tcell_model_parameters['a'],
+                            tcell_model_parameters['b'], tcell_model_parameters["deltaT"])
+
+                        # Calculate effective irradiance
+                        effective_irradiance = pvsystem.sapm_effective_irradiance(
+                            poa_irradiance['poa_direct'], poa_irradiance['poa_diffuse'], air_mass, aoi, pv_module)
+
+                        # Calculate power
+                        sapm_out = pvsystem.sapm(effective_irradiance, tcell, pv_module)
+
+                        # Save output to numpy
+                        p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
+
+        if not silent:
+            pbar.next()
+
+    if not silent:
+        pbar.finish()
+
+    return p_mp

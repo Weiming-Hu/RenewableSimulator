@@ -28,13 +28,13 @@ from progress.bar import IncrementalBar
 
 # Self hosted modules
 from Scenarios import Scenarios
-from Functions import read_hourly_SURFRAD, simulate_single_instance
+from Functions import read_hourly_surfrad, simulate_power
 
 
 def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, progress=True):
 
     # Read hourly SURFRAD data
-    yearly_data, meta = read_hourly_SURFRAD(year_folder, progress)
+    yearly_data, meta = read_hourly_surfrad(year_folder, progress)
 
     # Determine location
     current_location = location.Location(latitude=meta["latitude"], longitude=meta["longitude"])
@@ -95,7 +95,7 @@ def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, p
             air_mass = atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
 
             # Simulate a single instance power output
-            sapm_out = simulate_single_instance(
+            sapm_out = simulate_power(
                 ghi, dni_extra, tamb, wspd, albedo, current_time, surface_tilt, surface_azimuth,
                 pv_module, air_mass, tcell_model_parameters, solar_position)
 
