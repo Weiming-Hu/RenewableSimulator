@@ -288,8 +288,7 @@ if __name__ == '__main__':
     parser.add_argument('--solar', help="Method for solar position calculation", default="nrel_numpy")
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
-    parser.add_argument('--stations', default=None, type=int, 
-                        help="Limit the number of stations to simulate [useful in testing].")
+    parser.add_argument('--stations', default=None, type=int, help="Limit the number of stations to simulate.")
 
     # Parse arguments
     args = parser.parse_args()
