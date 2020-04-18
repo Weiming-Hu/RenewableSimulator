@@ -16,112 +16,81 @@
 # Built-in python modules
 import os
 import argparse
+from datetime import datetime
 
 # Scientific python add-ons
 import yaml
 import numpy as np
 import pandas as pd
-from pvlib import location, atmosphere, temperature, pvsystem, irradiance
-
-# Visualization add-ons
-from progress.bar import IncrementalBar
+from pvlib import temperature, pvsystem
 
 # Self hosted modules
 from Scenarios import Scenarios
-from Functions import read_hourly_surfrad, simulate_power
+from Functions import read_hourly_surfrad, simulate_power, simulate_sun_positions
 
 
-def run_pv_simulation_with_surfrad(output_file_prefix, scenarios, year_folder, progress=True):
+def run_pv_simulation_with_surfrad(output_file, scenarios, year_folder, progress=True):
 
     # Read hourly SURFRAD data
     yearly_data, meta = read_hourly_surfrad(year_folder, progress)
 
-    # Determine location
-    current_location = location.Location(latitude=meta["latitude"], longitude=meta["longitude"])
+    # Convert value table to numpy array to use the same the workflow as evergreen
+    ghi_arr = np.array(yearly_data.ghi).reshape((1, 1, yearly_data.shape[0], 1))
+    albedo_arr = np.array(yearly_data.uw_solar/yearly_data.ghi).reshape((1, 1, yearly_data.shape[0], 1))
+    wspd_arr = np.array(yearly_data.wind_speed).reshape((1, 1, yearly_data.shape[0], 1))
+    tamb_arr = np.array(yearly_data.temp_air).reshape((1, 1, yearly_data.shape[0], 1))
+
+    # Confine the calculated albedo
+    albedo_arr[:, :, yearly_data.ghi <= 0, :] = 0
+    albedo_arr[albedo_arr > 1] = 0
+
+    # Append the calculated albedo to the original data frame
+    yearly_data['calculated_albedo'] = albedo_arr[0, 0, :, 0]
+
+    # Calculate lead times from observation times
+    posix_flt = [0]
+    posix_start = datetime(1970, 1, 1)
+    datetime_strs = ['{}/{}/{} {}:{}'.format(
+        int(row['year']), int(row['month']), int(row['day']), int(row['hour']), int(row['minute']))
+        for _, row in yearly_data.iterrows()]
+    posix_days = [(datetime.strptime(datetime_str, '%Y/%m/%d %H:%M') - posix_start).total_seconds()
+                  for datetime_str in datetime_strs]
+
+    # Pre-calculate air mass and extraterrestrial irradiance from solar positions
+    sky_dict = simulate_sun_positions(posix_days, posix_flt, [meta['latitude']], [meta['longitude']], 'nrel_numba', 0)
+    yearly_data['dni_extra'] = sky_dict["dni_extra"][0, :, 0]
+    yearly_data['air_mass'] = sky_dict["air_mass"][0, :, 0]
+    yearly_data['zenith'] = sky_dict["zenith"][0, :, 0]
+    yearly_data['azimuth'] = sky_dict["azimuth"][0, :, 0]
 
     # Determine the total number of scenarios
     num_scenarios = scenarios.total_scenarios()
 
-    # Initialize a progress bar
-    pbar = IncrementalBar("PV simulation", max=yearly_data.shape[0] * num_scenarios)
-    pbar.suffix = '%(percent).1f%% - %(eta)ds'
-
     for scenario_index in range(num_scenarios):
+
+        if progress:
+            print("Simulating scenario {}/{}".format(scenario_index, num_scenarios))
 
         current_scenario = scenarios.get_scenario(scenario_index)
 
         # get the current scenario settings
         surface_tilt = current_scenario["surface_tilt"]
         surface_azimuth = current_scenario["surface_azimuth"]
-        tcell_model_parameters = temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
-            current_scenario["tcell_model_parameters"]]
         pv_module = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
+        tcell_model_parameters = \
+            temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][current_scenario["tcell_model_parameters"]]
 
-        # Initialize empty data frame
-        output_df = pd.DataFrame(columns=("Time", "MaximumPowerOutput",
-                                          "GHI", "AmbientTemperature",
-                                          "WindSpeed", "Albedo", "UpwardSolar",
-                                          "DNI", "DHI"))
+        p_mp = simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, posix_days, posix_flt, sky_dict,
+                              surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, 0)
 
-        for row_index in range(yearly_data.shape[0]):
+        # Append the results to a data frame
+        column_name = "power_scenario_{:05d}".format(scenario_index)
+        yearly_data[column_name] = p_mp[0, 0, :, 0]
 
-            # Extract current row and values
-            current_row = yearly_data.iloc[row_index]
-            ghi = current_row['ghi']
-            tamb = current_row['temp_air']
-            wspd = current_row['wind_speed']
-
-            albedo = 0
-            if ghi > 0:
-                albedo = current_row['uw_solar'] / current_row['ghi']
-
-            # Constrain albedo
-            if albedo > 1:
-                albedo = 1
-            if albedo < 0:
-                albedo = 0
-
-            # Get current time
-            datetime_str = '/'.join([str(int(x)) for x in current_row[['year', 'month', 'day', 'hour', 'minute']]])
-            current_time = pd.to_datetime(datetime_str, format="%Y/%m/%d/%H/%M")
-
-            # Calculate sun position
-            solar_position = current_location.get_solarposition(current_time)
-
-            # Calculate extraterrestrial DNI
-            dni_extra = irradiance.get_extra_radiation(current_time)
-
-            # Calculate air mass
-            air_mass = atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
-
-            # Simulate a single instance power output
-            sapm_out = simulate_power(
-                ghi, dni_extra, tamb, wspd, albedo, current_time, surface_tilt, surface_azimuth,
-                pv_module, air_mass, tcell_model_parameters, solar_position)
-
-            # Store results
-            new_row = {
-                "Time": current_time.strftime(format = "%Y-%m-%d-%H-%M"),
-                "MaximumPowerOutput": sapm_out["p_mp"][0],
-                "GHI": ghi,
-                "AmbientTemperature": tamb,
-                "WindSpeed": wspd,
-                "Albedo": albedo,
-                "UpwardSolar": current_row['uw_solar'],
-                "DNI": current_row['dni'],
-                "DHI": current_row['dhi'],
-            }
-
-            output_df = output_df.append(new_row, ignore_index=True)
-
-            if progress:
-                pbar.next()
-
-        # Write the current data frame to a CSV file
-        output_df.to_csv(output_file_prefix + "_scenario-{:05d}.csv".format(scenario_index))
-
+    # Write the current data frame to a CSV file
     if progress:
-        pbar.finish()
+        print("Writing to {}".format(output_file))
+    yearly_data.to_csv(output_file)
 
     return meta
 
@@ -186,10 +155,10 @@ if __name__ == '__main__':
             print("Simulating {} ...".format(simulation_folder))
 
         # Use the location and the year as the prefix
-        output_file_prefix = os.path.join(args.output, '-'.join(simulation_folder.split('/')[-2:]))
+        output_file = os.path.join(args.output, '-'.join(simulation_folder.split('/')[-2:]) + '.csv')
 
         # Catch the meta information
-        meta = run_pv_simulation_with_surfrad(output_file_prefix, scenarios, simulation_folder, not args.silent)
+        meta = run_pv_simulation_with_surfrad(output_file, scenarios, simulation_folder, not args.silent)
 
         # Record the location
         coords[meta["name"]] = [meta["latitude"], meta["longitude"]]

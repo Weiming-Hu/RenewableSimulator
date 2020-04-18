@@ -144,7 +144,7 @@ def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="
 
     # Initialize a progress bar
     if not silent:
-        pbar = IncrementalBar("Sun position silumations", max=num_stations)
+        pbar = IncrementalBar("Sun position silumations", max=num_stations * num_days)
         pbar.suffix = '%(percent).1f%% - %(eta)ds'
 
     # Initialize output variables
@@ -179,8 +179,8 @@ def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="
                 sky_dict["apparent_zenith"][lead_time_index, day_index, station_index] = solar_position["apparent_zenith"]
                 sky_dict["azimuth"][lead_time_index, day_index, station_index] = solar_position["azimuth"]
 
-        if not silent:
-            pbar.next()
+            if not silent:
+                pbar.next()
 
     if not silent:
         pbar.finish()
@@ -204,7 +204,7 @@ def simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, days, lead_times, sk
     p_mp = np.zeros((num_analogs, num_lead_times, num_days, num_stations))
 
     if not silent:
-        pbar = IncrementalBar("Power scenario simulation", max=num_stations)
+        pbar = IncrementalBar("Power scenario simulation", max=num_stations * num_days)
         pbar.suffix = '%(percent).1f%% - %(eta)ds'
 
     for station_index in range(num_stations):
@@ -260,8 +260,8 @@ def simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, days, lead_times, sk
                         # Save output to numpy
                         p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"]
 
-        if not silent:
-            pbar.next()
+            if not silent:
+                pbar.next()
 
     if not silent:
         pbar.finish()
