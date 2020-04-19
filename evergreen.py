@@ -34,7 +34,7 @@ from mpi4py import MPI
 
 def run_pv_simulations_with_analogs(
         nc_file, variable_dict, scenarios, progress=True, solar_position_method="nrel_numpy",
-        downscale=None):
+        downscale=None, profile_memory=False):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -182,6 +182,12 @@ def run_pv_simulations_with_analogs(
     if progress and rank == 0:
         print("Power simulation is complete!")
 
+        if profile_memory:
+            heap_usage = hpy().heap()
+            print(heap_usage)
+            print()
+            print(heap_usage.more)
+
     return
 
 
@@ -261,9 +267,7 @@ if __name__ == '__main__':
             profiler.start()
 
         elif args.profiler == "memory":
-            # Use the decorator from memory_profiler
-            from memory_profiler import profile
-            run_pv_simulations_with_analogs = profile(run_pv_simulations_with_analogs)
+            from guppy import hpy
 
         elif args.profiler == "line_profiler":
             try:
@@ -278,7 +282,8 @@ if __name__ == '__main__':
     # Run the simulator
     run_pv_simulations_with_analogs(
         nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios, progress=not args.silent,
-        solar_position_method=args.solar, downscale=args.downscale)
+        solar_position_method=args.solar, downscale=args.downscale,
+        profile_memory=(args.profiler == "memory"))
 
     if args.profile:
         if args.profiler == "yappi":
