@@ -193,6 +193,17 @@ def simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, days, lead_times, sk
     """
     Simulates PV energy production
     """
+    # Sanity check
+    assert (ghi_arr.shape == tamb_arr.shape), "ghi_arr.shape != tamb_arr.shape"
+    assert (ghi_arr.shape == wspd_arr.shape), "ghi_arr.shape != wspd_arr.shape"
+    assert (ghi_arr.shape == albedo_arr.shape), "ghi_arr.shape != albedo_arr.shape"
+    assert (ghi_arr.shape[2] == len(days)), "ghi_arr.shape[2] != len(days)"
+    assert (ghi_arr.shape[1] == len(lead_times)), "ghi_arr.shape[1] != len(lead_times)"
+    assert (ghi_arr.shape[1:4] == sky_dict["air_mass"].shape), "ghi_arr.shape[1:4] != sky_dict['air_mass'].shape"
+    assert (ghi_arr.shape[1:4] == sky_dict["dni_extra"].shape), "ghi_arr.shape[1:4] != sky_dict['dni_extra'].shape"
+    assert (ghi_arr.shape[1:4] == sky_dict["zenith"].shape), "ghi_arr.shape[1:4] != sky_dict['zenith'].shape"
+    assert (ghi_arr.shape[1:4] == sky_dict["apparent_zenith"].shape), "ghi_arr.shape[1:4] != sky_dict['apparent_zenith'].shape"
+    assert (ghi_arr.shape[1:4] == sky_dict["azimuth"].shape), "ghi_arr.shape[1:4] != sky_dict['azimuth'].shape"
 
     # Determine the dimensions
     num_analogs = ghi_arr.shape[0]
