@@ -33,7 +33,8 @@ from mpi4py import MPI
 
 
 def run_pv_simulations_with_analogs(
-        nc_file, variable_dict, scenarios, progress=True, solar_position_method="nrel_numpy", downscale=None):
+        nc_file, variable_dict, scenarios, progress=True, solar_position_method="nrel_numpy",
+        downscale=None):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -116,10 +117,10 @@ def run_pv_simulations_with_analogs(
     nc_tamb = nc.variables[variable_dict["tamb"]]
 
     # Actually read the subset of values
-    nc_ghi = nc_ghi[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start:station_index_end]
-    nc_albedo = nc_albedo[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start:station_index_end]
-    nc_wspd = nc_wspd[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start:station_index_end]
-    nc_tamb = nc_tamb[0: num_analogs, 0: num_lead_times, 0: num_days, station_index_start:station_index_end]
+    nc_ghi = nc_ghi[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    nc_albedo = nc_albedo[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    nc_wspd = nc_wspd[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    nc_tamb = nc_tamb[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
 
     # These are single dimensional vectors
     nc_lat = nc.variables[variable_dict["lat"]][station_index_start:station_index_end]
@@ -180,6 +181,7 @@ def run_pv_simulations_with_analogs(
 
     if progress and rank == 0:
         print("Power simulation is complete!")
+
     return
 
 
@@ -248,6 +250,7 @@ if __name__ == '__main__':
 
     # Start a profiler
     if args.profile:
+
         if args.profiler == "yappi":
             import yappi
             yappi.start()
@@ -256,6 +259,11 @@ if __name__ == '__main__':
             from pyinstrument import Profiler
             profiler = Profiler()
             profiler.start()
+
+        elif args.profiler == "memory":
+            # Use the decorator from memory_profiler
+            from memory_profiler import profile
+            run_pv_simulations_with_analogs = profile(run_pv_simulations_with_analogs)
 
         elif args.profiler == "line_profiler":
             try:
@@ -289,3 +297,4 @@ if __name__ == '__main__':
 
             if rank == 0:
                 print(profiler.output_text(unicode=True, color=True))
+
