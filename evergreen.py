@@ -73,7 +73,7 @@ def run_pv_simulations_with_analogs(
     else:
         parallel_netcdf = True
 
-    if progress:
+    if progress and rank == 0:
         print("Input file is {}".format(nc_file))
     nc = Dataset(nc_file, "a", parallel=parallel_netcdf)
 
