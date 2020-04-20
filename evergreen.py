@@ -88,9 +88,9 @@ def run_pv_simulations_with_analogs(
     # Downscale the computation if it is set to an integer number
     if isinstance(downscale, int):
         num_stations = math.ceil(num_stations/downscale)
-        num_days = math.ceil(num_days/downscale)
-        num_analogs = math.ceil(num_analogs / downscale)
-        num_scenarios = math.ceil(num_scenarios / downscale)
+        #num_days = math.ceil(num_days/downscale)
+        #num_analogs = math.ceil(num_analogs/downscale)
+        #num_scenarios = math.ceil(num_scenarios/downscale)
 
     if progress and rank == 0:
         summary_info = "Summary information for the current task:\n" + \
@@ -177,8 +177,6 @@ def run_pv_simulations_with_analogs(
         # Write the simulation results with the current scenario to the NetCDF file
         nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
 
-    nc.close()
-
     if progress and rank == 0:
         print("Power simulation is complete!")
 
@@ -188,6 +186,8 @@ def run_pv_simulations_with_analogs(
             print(heap_usage)
             print()
             print(heap_usage.more)
+
+    nc.close()
 
     return
 
