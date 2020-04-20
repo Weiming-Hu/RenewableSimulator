@@ -183,6 +183,7 @@ def run_pv_simulations_with_analogs(
         print("Power simulation is complete!")
 
         if profile_memory:
+            print("Rank #{} heap usage:".format(rank))
             heap_usage = hpy().heap()
             print(heap_usage)
             print()
