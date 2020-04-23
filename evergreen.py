@@ -34,7 +34,7 @@ from mpi4py import MPI
 
 def run_pv_simulations_with_analogs(
         nc_file, variable_dict, scenarios, progress=True, solar_position_method="nrel_numpy",
-        downscale=None, profile_memory=False):
+        downscale=None, profile_memory=False, simple_clock=False):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -65,6 +65,10 @@ def run_pv_simulations_with_analogs(
 
     if progress and rank == 0:
         print("Running PV simulation with AnEn ...")
+
+    if rank == 0 and simple_clock:
+        timestamps = [time()]
+        log_names = []
 
     # Open the NetCDF file
     if num_procs == 1:
@@ -135,8 +139,16 @@ def run_pv_simulations_with_analogs(
     if progress:
         print("Rank #{} finished reading data".format(rank))
 
+    if rank == 0 and simple_clock:
+        timestamps.append(time())
+        log_names.append('Reading file')
+
     # Pre-calculate air mass and extraterrestrial irradiance from solar positions
     sky_dict = simulate_sun_positions(nc_day, nc_flt, nc_lat, nc_lon, solar_position_method, rank)
+
+    if rank == 0 and simple_clock:
+        timestamps.append(time())
+        log_names.append('Sun position calculation')
 
     # Batch run simulations
     for scenario_index in range(num_scenarios):
@@ -174,8 +186,16 @@ def run_pv_simulations_with_analogs(
         p_mp = simulate_power(nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt, sky_dict,
                               surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, rank)
 
+        if rank == 0 and simple_clock:
+            timestamps.append(time())
+            log_names.append('Scenario {:05d} simulation'.format(scenario_index))
+
         # Write the simulation results with the current scenario to the NetCDF file
         nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
+
+        if rank == 0 and simple_clock:
+            timestamps.append(time())
+            log_names.append('Scenario {:05d} output'.format(scenario_index))
 
     if progress and rank == 0:
         print("Power simulation is complete!")
@@ -188,6 +208,21 @@ def run_pv_simulations_with_analogs(
             print(heap_usage.more)
 
     nc.close()
+
+    if rank == 0 and simple_clock:
+        if len(log_names) == len(timestamps) - 1:
+            # This is expected
+            print("****************** Simple Clock Summary ******************")
+            print("Total wall time: {}s".format(timestamps[-1] - timestamps[0]))
+            for i in range(len(log_names)):
+                print("{}: {}s".format(log_names[i], timestamps[i + 1] - timestamps[i]))
+            print("*************** End of Simple Clock Summary **************")
+
+        else:
+            # This is not expected
+            print("Something unexpected happened. The lengths are not correct. I'm dumping the results.")
+            print(log_names)
+            print(timestamps)
 
     return
 
@@ -277,6 +312,9 @@ if __name__ == '__main__':
             except:
                 raise Exception("Failed with function decorating. Did you properly use kernprof ?")
 
+        elif args.profiler == "simple":
+            from time import time
+
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
 
@@ -284,7 +322,8 @@ if __name__ == '__main__':
     run_pv_simulations_with_analogs(
         nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios, progress=not args.silent,
         solar_position_method=args.solar, downscale=args.downscale,
-        profile_memory=(args.profiler == "memory"))
+        profile_memory=(args.profile and args.profiler == "memory"),
+        simple_clock=(args.profile and args.profiler == "simple"))
 
     if args.profile:
         if args.profiler == "yappi":

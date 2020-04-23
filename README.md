@@ -58,7 +58,7 @@ python evergreen.py -h
 
 ```shell script
 # Run the program through the profiler
-python evergreen.py --profile --profiler yappi --stations 2
+python evergreen.py --profile --profiler yappi --downscale 100
 
 # On Mac OS. kcachegrind on Linux
 qcachegrind yappi_2020-04-12-18-08-48_rank-0.log
@@ -68,17 +68,25 @@ qcachegrind yappi_2020-04-12-18-08-48_rank-0.log
 
 ```shell script
 # Run the program through the profiler
-python evergreen.py --profile --profiler pyinstrument --station 2
+python evergreen.py --profile --profiler pyinstrument --downscale 100
 ```
 
 ### line_profiler
 
 ```shell script
 # Run the program through the profiler
-kernprof -l evergreen.py --profile --profiler line_profiler --stations 2
+kernprof -l evergreen.py --profile --profiler line_profiler --downscale 100
 
 # Generate text output
 python -m line_profiler evergreen.py.lprof
+```
+
+### Simple Clock
+
+If you are ready for production but still want to have a general idea of how much time was spent, the simple clock would be a good solution. It just uses `time.time()` to get current time so its overhead is pretty low.
+
+```shell script
+python evergreen.py --profile --profiler simple
 ```
 
 ## Feedback
