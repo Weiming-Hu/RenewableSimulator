@@ -15,30 +15,26 @@
 
 # Built-in python modules
 import os
+import math
 import argparse
 import datetime
 
 # Scientific python add-ons
 import yaml
-import pandas as pd
-import numpy as np
 from netCDF4 import Dataset
-from pvlib import location, atmosphere, temperature, pvsystem, irradiance
-
-# Visualization add-ons
-from progress.bar import IncrementalBar
+from pvlib import temperature, pvsystem
 
 # Self hosted modules
-from Functions import simulate_single_instance, get_start_index, get_end_index
 from Scenarios import Scenarios
+from Functions import simulate_sun_positions, simulate_power, get_start_index, get_end_index
 
-# Performance add-ons
+# Performance add-on
 from mpi4py import MPI
 
 
-def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=True,
-                                    max_num_stations=None, solar_position_method="nrel_numpy",
-                                    early_stopping=False, early_stopping_count=5):
+def run_pv_simulations_with_analogs(
+        nc_file, variable_dict, scenarios, progress=True, solar_position_method="nrel_numpy",
+        downscale=None, profile_memory=False):
     """
     Simulates the power output ensemble given a weather analog file and several scenarios.
 
@@ -50,9 +46,9 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     :param variable_dict: A variable dictionary
     :param scenarios: Scenarios to simulation
     :param progress: Whether to show progress information
-    :param early_stopping: Stop the simulation earlier when profiling is engaged
-    :param early_stopping_count: A small number to signify the early stopping of the simulation.
-    :return:
+    :param solar_position_method: The method to use for calculating solar position
+    :param downscale: The denominator to downscale the computation for testing purposes
+    :return: None
     """
 
     # Sanity checks
@@ -69,7 +65,6 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
 
     if progress and rank == 0:
         print("Running PV simulation with AnEn ...")
-        print("{} processes have been started for the simulation".format(num_procs))
 
     # Open the NetCDF file
     if num_procs == 1:
@@ -79,7 +74,9 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     else:
         parallel_netcdf = True
 
-    nc = Dataset(nc_file, "a", parallel=parallel_netcdf, comm=comm, info=MPI.Info())
+    if progress and rank == 0:
+        print("Input file is {}".format(nc_file))
+    nc = Dataset(nc_file, "a", parallel=parallel_netcdf)
 
     # Determine the dimensions of the problem to simulate
     num_stations = nc.dimensions['num_stations'].size
@@ -88,77 +85,64 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
     num_analogs = nc.dimensions['num_analogs'].size
     num_scenarios = scenarios.total_scenarios()
 
-    # If the max number of stations is defined, constrain the number of total stations to simulate
-    if max_num_stations is not None and max_num_stations < num_stations:
-        num_stations = max_num_stations
-        if rank == 0:
-            print("The total number of stations to simulate is effectively limited to {}".format(num_stations))
+    # Downscale the computation if it is set to an integer number
+    if isinstance(downscale, int):
+        num_stations = math.ceil(num_stations/downscale)
+        #num_days = math.ceil(num_days/downscale)
+        #num_analogs = math.ceil(num_analogs/downscale)
+        #num_scenarios = math.ceil(num_scenarios/downscale)
 
     if progress and rank == 0:
-        dimension_info = "Total simulation dimensions:\n" + \
+        summary_info = "Summary information for the current task:\n" + \
                          "-- {} scenarios\n".format(num_scenarios) + \
                          "-- {} stations\n".format(num_stations) + \
                          "-- {} test days\n".format(num_days) + \
                          "-- {} lead times\n".format(num_lead_times) + \
                          "-- {} analog members\n".format(num_analogs) + \
                          "-- {} processes".format(num_procs)
-        print(dimension_info)
+        print(summary_info)
 
     # Determine the chunk of stations assigned to this current process
     station_index_start = get_start_index(num_stations, num_procs, rank)
     station_index_end = get_end_index(num_stations, num_procs, rank)
-    num_sub_stations = station_index_end - station_index_start
-
-    if num_sub_stations == 1:
-        msg = "Rank #{} only processes 1 station but at least 2 stations. Reduce the number of processes.".format(rank)
-        raise Exception(msg)
 
     # Extract variables for the current stations
     if progress:
         print("Rank #{} reading data from stations [{}, {})".format(rank, station_index_start, station_index_end))
 
-    # These are high dimensional arrays
-    nc_ghi = nc.variables[variable_dict["ghi"]][:, :, :, station_index_start:station_index_end]
-    nc_albedo = nc.variables[variable_dict["alb"]][:, :, :, station_index_start:station_index_end]
-    nc_wspd = nc.variables[variable_dict["wspd"]][:, :, :, station_index_start:station_index_end]
-    nc_tamb = nc.variables[variable_dict["tamb"]][:, :, :, station_index_start:station_index_end]
-    
+    # These are high dimensional variables
+    nc_ghi = nc.variables[variable_dict["ghi"]]
+    nc_albedo = nc.variables[variable_dict["alb"]]
+    nc_wspd = nc.variables[variable_dict["wspd"]]
+    nc_tamb = nc.variables[variable_dict["tamb"]]
+
+    # Actually read the subset of values
+    nc_ghi = nc_ghi[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    nc_albedo = nc_albedo[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    nc_wspd = nc_wspd[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    nc_tamb = nc_tamb[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+
     # These are single dimensional vectors
-    nc_lat = nc.variables[variable_dict["lat"]][:]
-    nc_lon = nc.variables[variable_dict["lon"]][:]
-    nc_day = nc.variables[variable_dict["date"]][:]
-    nc_flt = nc.variables[variable_dict["flt"]][:]
+    nc_lat = nc.variables[variable_dict["lat"]][station_index_start:station_index_end]
+    nc_lon = nc.variables[variable_dict["lon"]][station_index_start:station_index_end]
+    nc_day = nc.variables[variable_dict["date"]][0:num_days]
+    nc_flt = nc.variables[variable_dict["flt"]][0:num_lead_times]
+
+    # Weather output pre-process
+    nc_albedo /= 100
+    nc_tamb -= 273.15
 
     if progress:
         print("Rank #{} finished reading data".format(rank))
 
-    # Initialize the array dimensions
-    array_dimensions = ("num_analogs", "num_flts", "num_test_times", "num_stations")
-
-    # Initialize a progress bar
-    if early_stopping and rank == 0:
-        bar_length = early_stopping_count
-
-        msg = "Early stopping is engaged. Progress will be terminated after {} simulated instances".format(
-            early_stopping_count * num_analogs * num_lead_times)
-        msg += " including {} * {} lead times * {} analog members".format(
-            early_stopping_count, num_lead_times, num_analogs)
-        print(msg)
-
-    else:
-        bar_length = num_scenarios * num_stations * num_days
-
-    if progress:
-        if num_procs == 1:
-            pbar = IncrementalBar("PV simulation rank #{}".format(rank), max=bar_length)
-            pbar.suffix = '%(percent).1f%% - %(eta)ds'
-        else:
-            progress_threshold = bar_length / 100
-            progress_value = 0
-            progress_count = 0
+    # Pre-calculate air mass and extraterrestrial irradiance from solar positions
+    sky_dict = simulate_sun_positions(nc_day, nc_flt, nc_lat, nc_lon, solar_position_method, rank)
 
     # Batch run simulations
     for scenario_index in range(num_scenarios):
+
+        if progress:
+            print("Rank #{} simulating scenario {}/{}".format(rank, scenario_index, num_scenarios))
 
         # Extract current scenario
         current_scenario = scenarios.get_scenario(scenario_index)
@@ -171,100 +155,40 @@ def run_pv_simulations_with_analogs(nc_file, variable_dict, scenarios, progress=
             nc_output_group.setncattr(key, value)
 
         # Create an array to store power at maximum-power point
-        p_mp = np.zeros((num_analogs, num_lead_times, num_days, num_sub_stations))
         nc_p_mp = nc_output_group.variables.get("p_mp")
 
         if nc_p_mp is None:
-            nc_p_mp = nc_output_group.createVariable("p_mp", "f8", array_dimensions)
+            nc_p_mp = nc_output_group.createVariable(
+                "p_mp", "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
 
         nc_p_mp.long_name = "power at maximum-power point"
 
         # Copy values from the current scenarios
         surface_tilt = current_scenario["surface_tilt"]
         surface_azimuth = current_scenario["surface_azimuth"]
-        tcell_model_parameters = temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
-            current_scenario["tcell_model_parameters"]]
         pv_module = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
+        tcell_model_parameters = \
+            temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][current_scenario["tcell_model_parameters"]]
 
-        for station_index in range(num_sub_stations):
-
-            # Determine the current location
-            current_location = location.Location(latitude=nc_lat[station_index], longitude=nc_lon[station_index])
-
-            for day_index in range(num_days):
-                for lead_time_index in range(num_lead_times):
-
-                    # Determine the current time
-                    current_posix = nc_day[day_index] + nc_flt[lead_time_index]
-                    current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
-
-                    # Calculate sun position
-                    #
-                    # TODO: What is the relation between solar position and air pressure?
-                    #
-                    solar_position = current_location.get_solarposition(current_time, method=solar_position_method)
-
-                    # Calculate extraterrestrial DNI
-                    #
-                    # TODO: There are different models to estimate the extraterrestrial radiation.
-                    #
-                    dni_extra = irradiance.get_extra_radiation(current_time)
-
-                    # Calculate air mass
-                    air_mass = atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
-
-                    for analog_index in range(num_analogs):
-
-                        # Extra weather forecasts
-                        ghi = nc_ghi[analog_index, lead_time_index, day_index, station_index]
-                        albedo = nc_albedo[analog_index, lead_time_index, day_index, station_index] / 100
-                        wspd = nc_wspd[analog_index, lead_time_index, day_index, station_index]
-                        tamb = nc_tamb[analog_index, lead_time_index, day_index, station_index] - 273.15
-
-                        # Simulate a single instance power output
-                        sapm_out = simulate_single_instance(
-                            ghi, dni_extra, tamb, wspd, albedo, current_time, surface_tilt, surface_azimuth,
-                            pv_module, air_mass, tcell_model_parameters, solar_position)
-
-                        # Assign results
-                        p_mp[analog_index, lead_time_index, day_index, station_index] = sapm_out["p_mp"][0]
-
-                # Update the progress bar
-                if progress:
-                    if num_procs == 1:
-                        pbar.next()
-                    else:
-                        progress_count += 1
-                        if progress_count > progress_threshold:
-                            progress_count = 0
-                            progress_value += 1
-                            print("Rank #{} finished {}% ...".format(rank, progress_value))
-
-                # Subtract 1 from early stopping counter
-                early_stopping_count -= 1
-
-                if early_stopping and early_stopping_count == 0:
-                    nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
-                    nc.close()
-
-                    if num_procs == 1:
-                        pbar.finish()
-
-                    if progress and rank == 0:
-                        print("Simulation terminated due to the profiling tool engaged")
-
-                    return
+        # Simulate with the current scenario
+        p_mp = simulate_power(nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt, sky_dict,
+                              surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, rank)
 
         # Write the simulation results with the current scenario to the NetCDF file
-        nc_p_mp[:, :, :, station_index_start:station_index_end] = p_mp
+        nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
+
+    if progress and rank == 0:
+        print("Power simulation is complete!")
+
+        if profile_memory:
+            print("Rank #{} heap usage:".format(rank))
+            heap_usage = hpy().heap()
+            print(heap_usage)
+            print()
+            print(heap_usage.more)
 
     nc.close()
 
-    if num_procs == 1:
-        pbar.finish()
-
-    if progress and rank == 0:
-        print("PV simulation is complete!")
     return
 
 
@@ -280,15 +204,14 @@ if __name__ == '__main__':
 
     # Define arguments
     parser = argparse.ArgumentParser(description=welcome_msg)
-    parser.add_argument('--nc', help=nc_message, required=False, default="~/data/analogs_PA.nc")
+    parser.add_argument('--nc', help=nc_message, required=False, default="analogs_PA.nc")
     parser.add_argument('--map', help=map_message, required=False, default="variable-map.yaml")
     parser.add_argument('--scenario', help=scenario_message, required=False, default="scenarios.yaml")
     parser.add_argument('--silent', help="No progress information", action='store_true', default=False)
     parser.add_argument('--solar', help="Method for solar position calculation", default="nrel_numpy")
     parser.add_argument('--profile', help="Turn on profiling", action='store_true', default=False)
     parser.add_argument('--profiler', default='pyinstrument', help="Either pyinstrument or yappi")
-    parser.add_argument('--stations', default=None, type=int, 
-                        help="Limit the number of stations to simulate [useful in testing].")
+    parser.add_argument('--downscale', default=None, type=int, help="Subset the computation for testing")
 
     # Parse arguments
     args = parser.parse_args()
@@ -334,6 +257,7 @@ if __name__ == '__main__':
 
     # Start a profiler
     if args.profile:
+
         if args.profiler == "yappi":
             import yappi
             yappi.start()
@@ -342,6 +266,9 @@ if __name__ == '__main__':
             from pyinstrument import Profiler
             profiler = Profiler()
             profiler.start()
+
+        elif args.profiler == "memory":
+            from guppy import hpy
 
         elif args.profiler == "line_profiler":
             try:
@@ -355,9 +282,9 @@ if __name__ == '__main__':
 
     # Run the simulator
     run_pv_simulations_with_analogs(
-        nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios,
-        progress=not args.silent, max_num_stations=args.stations, 
-        solar_position_method=args.solar, early_stopping=args.profile)
+        nc_file=nc_file, variable_dict=variable_dict, scenarios=scenarios, progress=not args.silent,
+        solar_position_method=args.solar, downscale=args.downscale,
+        profile_memory=(args.profiler == "memory"))
 
     if args.profile:
         if args.profiler == "yappi":
@@ -376,3 +303,4 @@ if __name__ == '__main__':
 
             if rank == 0:
                 print(profiler.output_text(unicode=True, color=True))
+
