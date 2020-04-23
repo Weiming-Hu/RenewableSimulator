@@ -40,6 +40,7 @@ The following modules are only required during profiling:
 - [yappi](https://pypi.org/project/yappi/)
 - [pyinstrument](https://github.com/joerick/pyinstrument)
 - [line_profiler](https://github.com/pyutils/line_profiler)
+- [guppy3](https://github.com/zhuyifei1999/guppy3/)
 
 ## Usage
 
