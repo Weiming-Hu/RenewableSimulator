@@ -120,6 +120,12 @@ def run_pv_simulations_with_analogs(
     nc_wspd = nc.variables[variable_dict["wspd"]]
     nc_tamb = nc.variables[variable_dict["tamb"]]
 
+    # Set collective mode for better I/O
+    nc_ghi.set_collective(True)
+    nc_albedo.set_collective(True)
+    nc_wspd.set_collective(True)
+    nc_tamb.set_collective(True)
+
     # Actually read the subset of values
     nc_ghi = nc_ghi[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
     nc_albedo = nc_albedo[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
@@ -168,6 +174,7 @@ def run_pv_simulations_with_analogs(
 
         # Create an array to store power at maximum-power point
         nc_p_mp = nc_output_group.variables.get("p_mp")
+        nc_p_mp.set_collective(True)
 
         if nc_p_mp is None:
             nc_p_mp = nc_output_group.createVariable(
