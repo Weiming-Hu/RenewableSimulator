@@ -174,12 +174,12 @@ def run_pv_simulations_with_analogs(
 
         # Create an array to store power at maximum-power point
         nc_p_mp = nc_output_group.variables.get("p_mp")
-        nc_p_mp.set_collective(True)
 
         if nc_p_mp is None:
             nc_p_mp = nc_output_group.createVariable(
                 "p_mp", "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
 
+        nc_p_mp.set_collective(True)
         nc_p_mp.long_name = "power at maximum-power point"
 
         # Copy values from the current scenarios
