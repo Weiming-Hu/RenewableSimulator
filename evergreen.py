@@ -233,10 +233,10 @@ def run_pv_simulations_with_analogs(
     nc_data_reshape = np.transpose(nc_data_reshape, (3, 0, 1, 2))
 
     # Actually read the subset of values
-    ghi_obs = nc_data_reshape[0, :, :, :]
-    albedo_obs = nc_data_reshape[1, :, :, :]
-    wspd_obs = nc_data_reshape[2, :, :, :]
-    tamb_obs = nc_data_reshape[3, :, :, :]
+    ghi_obs = nc_data_reshape[[0], :, :, :]
+    albedo_obs = nc_data_reshape[[1], :, :, :]
+    wspd_obs = nc_data_reshape[[2], :, :, :]
+    tamb_obs = nc_data_reshape[[3], :, :, :]
 
     # Weather output pre-process
     albedo_obs /= 100
