@@ -247,6 +247,7 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
 
     return
 
+
 def simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, days, lead_times, sky_dict,
                    surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, silent):
     """

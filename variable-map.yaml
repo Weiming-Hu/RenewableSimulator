@@ -24,6 +24,16 @@ alb: Albedo
 tamb: Temperature_2m
 wspd: WindSpeed_10m
 
+ghi_fcsts: DownwardShortwaveRadiation
+alb_fcsts: Albedo
+tamb_fcsts: Temperature_2m
+wspd_fcsts: WindSpeed_10m
+
+ghi_obs: DownwardShortwaveRadiation
+alb_obs: Albedo
+tamb_obs: Temperature_2m
+wspd_obs: WindSpeed_10m
+
 # Meta variables
 lon: Xs
 lat: Ys

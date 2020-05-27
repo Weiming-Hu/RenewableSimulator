@@ -21,8 +21,9 @@ import datetime
 
 # Scientific python add-ons
 import yaml
+import numpy as np
 from netCDF4 import Dataset
-from pvlib import temperature, pvsystem
+from pvlib import temperature
 
 # Self hosted modules
 from Scenarios import Scenarios
@@ -92,9 +93,6 @@ def run_pv_simulations_with_analogs(
     # Downscale the computation if it is set to an integer number
     if isinstance(downscale, int):
         num_stations = math.ceil(num_stations/downscale)
-        #num_days = math.ceil(num_days/downscale)
-        #num_analogs = math.ceil(num_analogs/downscale)
-        #num_scenarios = math.ceil(num_scenarios/downscale)
 
     if progress and rank == 0:
         summary_info = "Summary information for the current task:\n" + \
@@ -114,23 +112,73 @@ def run_pv_simulations_with_analogs(
     if progress:
         print("Rank #{} reading data from stations [{}, {})".format(rank, station_index_start, station_index_end))
 
+
+    """
+    Read analog variables
+    """
+
     # These are high dimensional variables
-    nc_ghi = nc.variables[variable_dict["ghi"]]
-    nc_albedo = nc.variables[variable_dict["alb"]]
-    nc_wspd = nc.variables[variable_dict["wspd"]]
-    nc_tamb = nc.variables[variable_dict["tamb"]]
+    ghi_anen = nc.variables[variable_dict["ghi"]]
+    albedo_anen = nc.variables[variable_dict["alb"]]
+    wspd_anen = nc.variables[variable_dict["wspd"]]
+    tamb_anen = nc.variables[variable_dict["tamb"]]
 
     # Set collective mode for better I/O
-    nc_ghi.set_collective(True)
-    nc_albedo.set_collective(True)
-    nc_wspd.set_collective(True)
-    nc_tamb.set_collective(True)
+    ghi_anen.set_collective(True)
+    albedo_anen.set_collective(True)
+    wspd_anen.set_collective(True)
+    tamb_anen.set_collective(True)
 
     # Actually read the subset of values
-    nc_ghi = nc_ghi[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    nc_albedo = nc_albedo[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    nc_wspd = nc_wspd[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
-    nc_tamb = nc_tamb[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    ghi_anen = ghi_anen[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    albedo_anen = albedo_anen[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    wspd_anen = wspd_anen[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+    tamb_anen = tamb_anen[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
+
+    # Weather output pre-process
+    albedo_anen /= 100
+    tamb_anen -= 273.15
+
+
+    """
+    Read forecast variables
+    """
+
+    # These are high dimensional variables
+    nc_data = nc.groups["Forecasts"].variables["Data"]
+
+    # Set collective mode for better I/O
+    nc_data.set_collective(True)
+
+    # Figure out which variables to read
+    ghi_index, = np.where(nc.groups["Forecasts"].variables["ParameterNames"][:] == variable_dict["ghi_fcsts"])
+    albedo_index, = np.where(nc.groups["Forecasts"].variables["ParameterNames"][:] == variable_dict["alb_fcsts"])
+    wspd_index, = np.where(nc.groups["Forecasts"].variables["ParameterNames"][:] == variable_dict["wspd_fcsts"])
+    tamb_index, = np.where(nc.groups["Forecasts"].variables["ParameterNames"][:] == variable_dict["tamb_fcsts"])
+
+    if not (len(ghi_index) == 1 and len(albedo_index) == 1 and len(wspd_index) == 1 and len(tamb_index) == 1):
+        raise Exception("Failed to find some forecast variables from file {}".format(nc_file))
+
+    # Actually read the subset of values
+    ghi_fcsts = nc_data[0:num_lead_times, 0:num_days, station_index_start:station_index_end, ghi_index]
+    albedo_fcsts = nc_data[0:num_lead_times, 0:num_days, station_index_start:station_index_end, albedo_index]
+    wspd_fcsts = nc_data[0:num_lead_times, 0:num_days, station_index_start:station_index_end, wspd_index]
+    tamb_fcsts = nc_data[0:num_lead_times, 0:num_days, station_index_start:station_index_end, tamb_index]
+
+    # Weather output pre-process
+    albedo_fcsts /= 100
+    tamb_fcsts -= 273.15
+
+    # Reorganize the dimensions
+    ghi_fcsts = np.transpose(ghi_fcsts, (3, 0, 1, 2))
+    albedo_fcsts = np.transpose(albedo_fcsts, (3, 0, 1, 2))
+    wspd_fcsts = np.transpose(wspd_fcsts, (3, 0, 1, 2))
+    tamb_fcsts = np.transpose(tamb_fcsts, (3, 0, 1, 2))
+
+
+    """
+    Read meta variables
+    """
 
     # These are single dimensional vectors
     nc_lat = nc.variables[variable_dict["lat"]][station_index_start:station_index_end]
@@ -138,9 +186,50 @@ def run_pv_simulations_with_analogs(
     nc_day = nc.variables[variable_dict["date"]][0:num_days]
     nc_flt = nc.variables[variable_dict["flt"]][0:num_lead_times]
 
+
+    """
+    Read observation values
+    """
+
+    # These are high dimensional variables
+    nc_data = nc.groups["Observations"].variables["Data"]
+    obs_times = nc.groups["Observations"].variables["Times"]
+
+    # Set collective mode for better I/O
+    nc_data.set_collective(True)
+    obs_times.set_collective(True)
+
+    # Figure out which variables to read
+    ghi_index, = np.where(nc.groups["Observations"].variables["ParameterNames"][:] == variable_dict["ghi_obs"])
+    albedo_index, = np.where(nc.groups["Observations"].variables["ParameterNames"][:] == variable_dict["alb_obs"])
+    wspd_index, = np.where(nc.groups["Observations"].variables["ParameterNames"][:] == variable_dict["wspd_obs"])
+    tamb_index, = np.where(nc.groups["Observations"].variables["ParameterNames"][:] == variable_dict["tamb_obs"])
+
+    if not (len(ghi_index) == 1 and len(albedo_index) == 1 and len(wspd_index) == 1 and len(tamb_index) == 1):
+        raise Exception("Failed to find some observation variables from file {}".format(nc_file))
+
+    # Reshape data
+    nc_data = nc_data[:, station_index_start:station_index_end,
+              (ghi_index[0], albedo_index[0], wspd_index[0], tamb_index[0])]
+    obs_times = obs_times[:]
+
+    nc_data_reshape = np.zeros((num_lead_times, num_days, nc_data.shape[1], nc_data.shape[2]))
+    for lead_time_index in range(nc_data_reshape.shape[0]):
+        for day_index in range(nc_data_reshape.shape[1]):
+            obs_time_index, = np.where(obs_times == nc_flt[lead_time_index] + nc_day[day_index])
+            nc_data_reshape[lead_time_index, day_index, :, :] = nc_data[obs_time_index, :, :]
+
+    nc_data_reshape = np.transpose(nc_data_reshape, (3, 0, 1, 2))
+
+    # Actually read the subset of values
+    ghi_obs = nc_data_reshape[0, :, :, :]
+    albedo_obs = nc_data_reshape[1, :, :, :]
+    wspd_obs = nc_data_reshape[2, :, :, :]
+    tamb_obs = nc_data_reshape[3, :, :, :]
+
     # Weather output pre-process
-    nc_albedo /= 100
-    nc_tamb -= 273.15
+    albedo_obs /= 100
+    tamb_obs -= 273.15
 
     if progress:
         print("Rank #{} finished reading data".format(rank))
@@ -160,7 +249,28 @@ def run_pv_simulations_with_analogs(
     simulate_power_batch(
         p_mp_varname="analogs", p_mp_longname="Maximum power simulation from analogs",
         num_scenarios=num_scenarios, num_analogs=num_analogs, num_lead_times=num_lead_times, num_days=num_days,
-        nc=nc, nc_ghi=nc_ghi, nc_tamb=nc_tamb, nc_wspd=nc_wspd, nc_albedo=nc_albedo, nc_day=nc_day, nc_flt=nc_flt,
+        nc=nc, nc_ghi=ghi_anen, nc_tamb=tamb_anen, nc_wspd=wspd_anen,
+        nc_albedo=albedo_anen, nc_day=nc_day, nc_flt=nc_flt,
+        sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
+        simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
+        station_index_start=station_index_start, station_index_end=station_index_end,
+        rank=rank, progress=progress)
+
+    simulate_power_batch(
+        p_mp_varname="forecasts", p_mp_longname="Maximum power simulation from WRF NAM forecasts",
+        num_scenarios=num_scenarios, num_analogs=1, num_lead_times=num_lead_times, num_days=num_days,
+        nc=nc, nc_ghi=ghi_fcsts, nc_tamb=tamb_fcsts, nc_wspd=wspd_fcsts,
+        nc_albedo=albedo_fcsts, nc_day=nc_day, nc_flt=nc_flt,
+        sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
+        simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
+        station_index_start=station_index_start, station_index_end=station_index_end,
+        rank=rank, progress=progress)
+
+    simulate_power_batch(
+        p_mp_varname="analysis", p_mp_longname="Maximum power simulation from WRF NAM analysis",
+        num_scenarios=num_scenarios, num_analogs=1, num_lead_times=num_lead_times, num_days=num_days,
+        nc=nc, nc_ghi=ghi_obs, nc_tamb=tamb_obs, nc_wspd=wspd_obs,
+        nc_albedo=albedo_obs, nc_day=nc_day, nc_flt=nc_flt,
         sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
         simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
         station_index_start=station_index_start, station_index_end=station_index_end,
