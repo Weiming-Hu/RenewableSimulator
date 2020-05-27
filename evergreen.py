@@ -108,14 +108,13 @@ def run_pv_simulations_with_analogs(
     station_index_start = get_start_index(num_stations, num_procs, rank)
     station_index_end = get_end_index(num_stations, num_procs, rank)
 
-    # Extract variables for the current stations
-    if progress:
-        print("Rank #{} reading data from stations [{}, {})".format(rank, station_index_start, station_index_end))
-
 
     """
     Read analog variables
     """
+
+    if progress: print("Rank #{} reading analogs from stations [{}, {})".format(
+        rank, station_index_start, station_index_end))
 
     # These are high dimensional variables
     ghi_anen = nc.variables[variable_dict["ghi"]]
@@ -143,6 +142,9 @@ def run_pv_simulations_with_analogs(
     """
     Read forecast variables
     """
+
+    if progress: print("Rank #{} reading forecasts from stations [{}, {})".format(
+        rank, station_index_start, station_index_end))
 
     # These are high dimensional variables
     nc_data = nc.groups["Forecasts"].variables["Data"]
@@ -180,6 +182,9 @@ def run_pv_simulations_with_analogs(
     Read meta variables
     """
 
+    if progress: print("Rank #{} reading meta variables from stations [{}, {})".format(
+        rank, station_index_start, station_index_end))
+
     # These are single dimensional vectors
     nc_lat = nc.variables[variable_dict["lat"]][station_index_start:station_index_end]
     nc_lon = nc.variables[variable_dict["lon"]][station_index_start:station_index_end]
@@ -190,6 +195,9 @@ def run_pv_simulations_with_analogs(
     """
     Read observation values
     """
+
+    if progress: print("Rank #{} reading observations from stations [{}, {})".format(
+        rank, station_index_start, station_index_end))
 
     # These are high dimensional variables
     nc_data = nc.groups["Observations"].variables["Data"]
@@ -217,7 +225,10 @@ def run_pv_simulations_with_analogs(
     for lead_time_index in range(nc_data_reshape.shape[0]):
         for day_index in range(nc_data_reshape.shape[1]):
             obs_time_index, = np.where(obs_times == nc_flt[lead_time_index] + nc_day[day_index])
-            nc_data_reshape[lead_time_index, day_index, :, :] = nc_data[obs_time_index, :, :]
+            if len(obs_time_index) == 1:
+                nc_data_reshape[lead_time_index, day_index, :, :] = nc_data[obs_time_index, :, :]
+            else:
+                nc_data_reshape[lead_time_index, day_index, :, :] = np.nan
 
     nc_data_reshape = np.transpose(nc_data_reshape, (3, 0, 1, 2))
 
