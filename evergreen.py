@@ -26,7 +26,7 @@ from pvlib import temperature, pvsystem
 
 # Self hosted modules
 from Scenarios import Scenarios
-from Functions import simulate_sun_positions, simulate_power, get_start_index, get_end_index
+from Functions import simulate_sun_positions, simulate_power_batch, get_start_index, get_end_index
 
 # Performance add-on
 from mpi4py import MPI
@@ -157,52 +157,14 @@ def run_pv_simulations_with_analogs(
         log_names.append('Sun position calculation')
 
     # Batch run simulations
-    for scenario_index in range(num_scenarios):
-
-        if progress:
-            print("Rank #{} simulating scenario {}/{}".format(rank, scenario_index, num_scenarios))
-
-        # Extract current scenario
-        current_scenario = scenarios.get_scenario(scenario_index)
-
-        # Create a group for the current scenario
-        nc_output_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
-
-        # Write the scenario to the group
-        for key, value in current_scenario.items():
-            nc_output_group.setncattr(key, value)
-
-        # Create an array to store power at maximum-power point
-        nc_p_mp = nc_output_group.variables.get("p_mp")
-
-        if nc_p_mp is None:
-            nc_p_mp = nc_output_group.createVariable(
-                "p_mp", "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
-
-        nc_p_mp.set_collective(True)
-        nc_p_mp.long_name = "power at maximum-power point"
-
-        # Copy values from the current scenarios
-        surface_tilt = current_scenario["surface_tilt"]
-        surface_azimuth = current_scenario["surface_azimuth"]
-        pv_module = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
-        tcell_model_parameters = \
-            temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][current_scenario["tcell_model_parameters"]]
-
-        # Simulate with the current scenario
-        p_mp = simulate_power(nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt, sky_dict,
-                              surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, rank)
-
-        if rank == 0 and simple_clock:
-            timestamps.append(time())
-            log_names.append('Scenario {:05d} simulation'.format(scenario_index))
-
-        # Write the simulation results with the current scenario to the NetCDF file
-        nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
-
-        if rank == 0 and simple_clock:
-            timestamps.append(time())
-            log_names.append('Scenario {:05d} output'.format(scenario_index))
+    simulate_power_batch(
+        p_mp_varname="analogs", p_mp_longname="Maximum power simulation from analogs",
+        num_scenarios=num_scenarios, num_analogs=num_analogs, num_lead_times=num_lead_times, num_days=num_days,
+        nc=nc, nc_ghi=nc_ghi, nc_tamb=nc_tamb, nc_wspd=nc_wspd, nc_albedo=nc_albedo, nc_day=nc_day, nc_flt=nc_flt,
+        sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
+        simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
+        station_index_start=station_index_start, station_index_end=station_index_end,
+        rank=rank, progress=progress)
 
     if progress and rank == 0:
         print("Power simulation is complete!")

@@ -14,6 +14,8 @@
 #
 
 import math
+from time import time
+
 import numpy as np
 import pandas as pd
 
@@ -187,6 +189,63 @@ def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="
 
     return sky_dict
 
+
+def simulate_power_batch(p_mp_varname, p_mp_longname,
+                         num_scenarios, num_analogs, num_lead_times, num_days,
+                         nc, nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt,
+                         sky_dict, temperature, scenarios,
+                         simple_clock, timestamps, log_names,
+                         station_index_start, station_index_end, rank, progress):
+
+    for scenario_index in range(num_scenarios):
+
+        if progress:
+            print("Rank #{} simulating scenario {}/{} for {}".format(
+                rank, scenario_index, num_scenarios, p_mp_longname))
+
+        # Extract current scenario
+        current_scenario = scenarios.get_scenario(scenario_index)
+
+        # Create a group for the current scenario
+        nc_output_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
+
+        # Write the scenario to the group
+        for key, value in current_scenario.items():
+            nc_output_group.setncattr(key, value)
+
+        # Create an array to store power at maximum-power point
+        nc_p_mp = nc_output_group.variables.get(p_mp_varname)
+
+        if nc_p_mp is None:
+            nc_p_mp = nc_output_group.createVariable(
+                p_mp_varname, "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
+
+        nc_p_mp.set_collective(True)
+        nc_p_mp.long_name = p_mp_longname
+
+        # Copy values from the current scenarios
+        surface_tilt = current_scenario["surface_tilt"]
+        surface_azimuth = current_scenario["surface_azimuth"]
+        pv_module = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
+        tcell_model_parameters = \
+            temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][current_scenario["tcell_model_parameters"]]
+
+        # Simulate with the current scenario
+        p_mp = simulate_power(nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt, sky_dict,
+                              surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, rank)
+
+        if rank == 0 and simple_clock:
+            timestamps.append(time())
+            log_names.append('Scenario {:05d} simulation'.format(scenario_index))
+
+        # Write the simulation results with the current scenario to the NetCDF file
+        nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
+
+        if rank == 0 and simple_clock:
+            timestamps.append(time())
+            log_names.append('Scenario {:05d} simulation for {}'.format(scenario_index, p_mp_varname))
+
+    return
 
 def simulate_power(ghi_arr, tamb_arr, wspd_arr, albedo_arr, days, lead_times, sky_dict,
                    surface_tilt, surface_azimuth, pv_module, tcell_model_parameters, silent):
