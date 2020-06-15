@@ -246,14 +246,14 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
 
         if rank == 0 and simple_clock:
             timestamps.append(time())
-            log_names.append('Scenario {:05d} simulation'.format(scenario_index))
+            log_names.append('Scenario {:05d} simulation with {}'.format(scenario_index, p_mp_varname))
 
         # Write the simulation results with the current scenario to the NetCDF file
         nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
 
         if rank == 0 and simple_clock:
             timestamps.append(time())
-            log_names.append('Scenario {:05d} simulation for {}'.format(scenario_index, p_mp_varname))
+            log_names.append('Scenario {:05d} simulation for writing {}'.format(scenario_index, p_mp_varname))
 
     return
 
