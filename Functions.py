@@ -195,7 +195,7 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
                          nc, nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt,
                          sky_dict, temperature, scenarios,
                          simple_clock, timestamps, log_names,
-                         station_index_start, station_index_end, rank, progress):
+                         station_index_start, station_index_end, rank, progress, parallel_netcdf):
 
     for scenario_index in range(num_scenarios):
 
@@ -229,7 +229,8 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
                 nc_p_mp = nc_output_group.createVariable(
                     p_mp_varname, "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
 
-        nc_p_mp.set_collective(True)
+        if parallel_netcdf:
+            nc_p_mp.set_collective(True)
         nc_p_mp.long_name = p_mp_longname
 
         # Copy values from the current scenarios
