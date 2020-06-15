@@ -212,15 +212,17 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
         # Write the scenario to the group
         for key, value in current_scenario.items():
             nc_output_group.setncattr(key, value)
+        
+        # Check whether I should add the dimension for single-analog case (e.g. forecasts and analysis)
+        if num_analogs == 1:
+            if 'single_member' not in nc_output_group.dimensions:
+                nc_output_group.createDimension('single_member', size=1)
 
         # Create an array to store power at maximum-power point
         nc_p_mp = nc_output_group.variables.get(p_mp_varname)
 
         if nc_p_mp is None:
             if num_analogs == 1:
-                if 'single_member' not in nc_output_group.dimensions:
-                    nc_output_group.createDimension('single_member', size=1)
-
                 nc_p_mp = nc_output_group.createVariable(
                     p_mp_varname, "f8", ("single_member", "num_flts", "num_test_times", "num_stations"))
             else:
