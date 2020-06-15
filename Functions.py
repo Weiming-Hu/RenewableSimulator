@@ -218,12 +218,14 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
 
         if nc_p_mp is None:
             if num_analogs == 1:
+                if 'single_member' not in nc_output_group.dimensions:
+                    nc_output_group.createDimension('single_member', size=1)
+
                 nc_p_mp = nc_output_group.createVariable(
                     p_mp_varname, "f8", ("single_member", "num_flts", "num_test_times", "num_stations"))
             else:
                 nc_p_mp = nc_output_group.createVariable(
                     p_mp_varname, "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
-            
 
         nc_p_mp.set_collective(True)
         nc_p_mp.long_name = p_mp_longname
