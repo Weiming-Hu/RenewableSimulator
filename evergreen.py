@@ -66,9 +66,10 @@ def run_pv_simulations_with_analogs(
 
     if progress and rank == 0:
         print("Running PV simulation with AnEn ...")
-
-    timestamps = [time()]
-    log_names = []
+        
+    if rank == 0 and simple_clock:
+        timestamps = [time()]
+        log_names = []
 
     # Open the NetCDF file
     if num_procs == 1:
