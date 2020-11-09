@@ -18,6 +18,7 @@ import os
 import math
 import argparse
 import datetime
+from time import time
 
 # Scientific python add-ons
 import yaml
@@ -67,9 +68,8 @@ def run_pv_simulations_with_analogs(
     if progress and rank == 0:
         print("Running PV simulation with AnEn ...")
         
-    if rank == 0 and simple_clock:
-        timestamps = [time()]
-        log_names = []
+    timestamps = [time()]
+    log_names = []
 
     # Open the NetCDF file
     if num_procs == 1:
@@ -406,7 +406,7 @@ if __name__ == '__main__':
                 raise Exception("Failed with function decorating. Did you properly use kernprof ?")
 
         elif args.profiler == "simple":
-            from time import time
+            pass
 
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
