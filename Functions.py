@@ -166,7 +166,7 @@ def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="
                 current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
 
                 # Calculate sun position
-                solar_position = current_location.get_solarposition(current_time, method=solar_position_method)
+                solar_position = current_location.get_solarposition(current_time, method=solar_position_method, numthreads=1)
 
                 # Calculate extraterrestrial DNI
                 sky_dict["dni_extra"][lead_time_index, day_index, station_index] = \
