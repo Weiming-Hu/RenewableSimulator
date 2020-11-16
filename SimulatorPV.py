@@ -184,7 +184,7 @@ class SimulatorSolarAnalogs(Simulator):
             nc_parameters = nc_parameters[:]
 
             for value_key in self.simulation_data[type_key].keys():
-                value_index = np.where(nc_parameters == self.variable_dict['{}_{}'.format(value_key, type_key)])
+                value_index = np.where(nc_parameters == self.variable_dict['{}_{}'.format(value_key, type_key)])[0]
                 assert len(value_index) == 1, 'Failed to find index for {} in for key {}'.format(value_key, type_key)
 
                 if type_key == 'fcsts':
