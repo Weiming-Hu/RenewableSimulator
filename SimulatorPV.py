@@ -20,7 +20,7 @@ import numpy as np
 from time import time
 from netCDF4 import Dataset
 from Scenarios import Scenarios
-from Functions import simulate_sun_positions
+from Functions import simulate_sun_positions, read_yaml
 
 
 ###################
@@ -28,8 +28,25 @@ from Functions import simulate_sun_positions
 ###################
 
 class Simulator:
-    def __init__(self):
-        raise NotImplementedError
+    def __init__(self, scenarios, simple_clock=False, stations_index=None, verbose=True):
+
+        if isinstance(scenarios, str):
+            self.scenarios = Scenarios(read_yaml(scenarios))
+        else:
+            assert isinstance(scenarios, Scenarios), 'Only accept Scenarios or yaml file path'
+            self.scenarios = scenarios
+
+        if stations_index is not None:
+            assert isinstance(stations_index, list), 'Station indices should be a list'
+            assert len(stations_index) == len(set(stations_index)), 'Duplicates found in station indices'
+
+            # Make sure the station indices are sorted
+            self.stations_index = stations_index
+            self.stations_index.sort()
+
+        self.verbose = verbose
+        self.simple_clock = simple_clock
+        self.simple_clock = {'timestamps': [time()], 'log_names': []}
 
     def simulate(self):
         raise NotImplementedError
@@ -39,6 +56,11 @@ class Simulator:
 
     def summary(self):
         raise NotImplementedError
+
+    def _log_event(self, log_name):
+        if self.simple_clock:
+            self.simple_clock['timestamps'].append(time())
+            self.simple_clock['log_names'].append(log_name)
 
 
 ###############################
@@ -51,29 +73,25 @@ class SimulatorSolarAnalogs(Simulator):
                  simple_clock=False, parallel_nc=False, stations_index=None,
                  cores=1, verbose=True, disable_progress_bar=False):
 
-        if verbose:
+        super().__init__(scenarios, simple_clock, stations_index, verbose)
+
+        if self.verbose:
             print('Initializing PV simulation with Analog Ensemble ...')
 
-        super().__init__()
-
         # Sanity checks
-        assert isinstance(scenarios, Scenarios), 'Only Scenarios are accepted for scenario definition'
-        assert len(stations_index) == len(set(stations_index)), 'Duplicates found in station indices'
-        assert isinstance(stations_index, list), 'Station indices should be a list'
         assert os.path.isfile(nc_file), '{} does not exist'.format(nc_file)
 
         # Initialization
-        self.nc_file = os.path.expanduser(nc_file)
-        self.variable_dict = variable_dict
-        self.scenarios = scenarios
-        self.solar_position_method = solar_position_method
-        self.simple_clock = simple_clock
-        self.parallel_nc = parallel_nc
-        self.stations_index = stations_index
         self.cores = cores
-        self.verbose = verbose
+        self.parallel_nc = parallel_nc
+        self.variable_dict = variable_dict
+        self.nc_file = os.path.expanduser(nc_file)
+        self.solar_position_method = solar_position_method
         self.disable_progress_bar = disable_progress_bar
-        self.simple_clock = {'timestamps': [time()], 'log_names': []}
+
+        # Process variable dict
+        if isinstance(self.variable_dict, str):
+            self.variable_dict = read_yaml(self.variable_dict)
 
         self.simulation_data = {
             'lon': None,
@@ -84,9 +102,6 @@ class SimulatorSolarAnalogs(Simulator):
             'fcsts': {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None},
             'obs': {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
         }
-
-        # Make sure the station indices are sorted
-        self.stations_index.sort()
 
         # Read data from NetCDF generated from Analog Ensemble
         self._read_simulation_data()
@@ -118,15 +133,6 @@ class SimulatorSolarAnalogs(Simulator):
                        '-- {} processes to be created'.format(self.cores)
 
         return summary_info
-
-    ###################
-    # Private Methods #
-    ###################
-
-    def _log_event(self, log_name):
-        if self.simple_clock:
-            self.simple_clock['timestamps'].append(time())
-            self.simple_clock['log_names'].append(log_name)
 
     def _read_simulation_data(self):
 

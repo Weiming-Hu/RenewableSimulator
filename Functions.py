@@ -13,15 +13,23 @@
 # The Pennsylvania State University
 #
 
+import os
 import math
-from time import time
+import yaml
 
 import numpy as np
 import pandas as pd
 
+
 from os import listdir, path
 from progress.bar import IncrementalBar
 from pvlib import pvsystem, irradiance, iotools, location, atmosphere
+
+
+def read_yaml(file):
+    with open(os.path.expanduser(file)) as f:
+        content = yaml.load(f, Loader=yaml.FullLoader)
+    return content
 
 
 def get_start_index(total, num_procs, rank):
