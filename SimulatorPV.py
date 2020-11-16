@@ -111,10 +111,11 @@ class SimulatorSolarAnalogs(Simulator):
         self.simulation_data['sky'] = simulate_sun_positions(
             days=self.simulation_data['test_times'],
             lead_times=self.simulation_data['lead_times'],
-            lats=self.simulation_data['latitudes'],
-            lons=self.simulation_data['longitudes'],
+            latitudes=self.simulation_data['latitudes'],
+            longitudes=self.simulation_data['longitudes'],
             solar_position_method=self.solar_position_method,
-            silent=not self.verbose)
+            disable_progress_bar=self.disable_progress_bar,
+            cores=self.cores)
 
         self._log_event('Calculate sun positions')
 
@@ -151,6 +152,8 @@ class SimulatorSolarAnalogs(Simulator):
         ####################
         # Read analog data #
         ####################
+        if self.verbose:
+            print('Reading analogs ...')
 
         for value_key in self.simulation_data['analogs'].keys():
 
@@ -169,6 +172,8 @@ class SimulatorSolarAnalogs(Simulator):
         ######################################
         # Read forecast and observation data #
         ######################################
+        if self.verbose:
+            print('Reading forecasts and observations ...')
 
         for type_key in ['fcsts', 'obs']:
 

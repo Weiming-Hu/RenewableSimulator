@@ -20,9 +20,10 @@ import yaml
 import numpy as np
 import pandas as pd
 
-
 from os import listdir, path
+from functools import partial
 from progress.bar import IncrementalBar
+from tqdm.contrib.concurrent import process_map
 from pvlib import pvsystem, irradiance, iotools, location, atmosphere
 
 
@@ -141,59 +142,69 @@ def read_hourly_surfrad(folder, progress=True):
     return hourly_data, meta
 
 
-def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="nrel_numpy", silent=False):
+def simulate_sum_positions_by_station(station_index, days, lead_times, latitudes, longitudes, solar_position_method):
+
+    # Initialization
+    num_lead_times, num_days = len(lead_times), len(days)
+
+    dni_extra = np.zeros((num_lead_times, num_days))
+    air_mass = np.zeros((num_lead_times, num_days))
+    zenith = np.zeros((num_lead_times, num_days))
+    apparent_zenith = np.zeros((num_lead_times, num_days))
+    azimuth = np.zeros((num_lead_times, num_days))
+
+    # Determine the current location
+    current_location = location.Location(latitude=latitudes[station_index], longitude=longitudes[station_index])
+
+    for day_index in range(num_days):
+        for lead_time_index in range(num_lead_times):
+
+            # Determine the current time
+            current_posix = days[day_index] + lead_times[lead_time_index]
+            current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
+
+            # Calculate sun position
+            solar_position = current_location.get_solarposition(
+                current_time, method=solar_position_method, numthreads=1)
+
+            # Calculate extraterrestrial DNI
+            dni_extra[lead_time_index, day_index] = irradiance.get_extra_radiation(current_time)
+
+            # Calculate air mass
+            air_mass[lead_time_index, day_index] = atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
+
+            # Store other keys
+            zenith[lead_time_index, day_index] = solar_position["zenith"]
+            apparent_zenith[lead_time_index, day_index] = solar_position["apparent_zenith"]
+            azimuth[lead_time_index, day_index] = solar_position["azimuth"]
+
+    return [dni_extra, air_mass, zenith, apparent_zenith, azimuth]
+
+
+def simulate_sun_positions(days, lead_times, latitudes, longitudes,
+                           solar_position_method="nrel_numpy",
+                           disable_progress_bar=False, cores=1):
     """
     Simulations from each input sun position and each input time.
     """
-    assert (len(lats) == len(lons)), "Numbers of latitudes and longitudes are not consistent"
+    assert (len(latitudes) == len(longitudes)), "Numbers of latitudes and longitudes are not consistent"
 
-    # The dimension of the simulation
-    num_days = len(days)
-    num_lead_times = len(lead_times)
-    num_stations = len(lons)
+    # Create a wrapper function for parallelization
+    wrapper = partial(simulate_sum_positions_by_station,
+                      days=days, lead_times=lead_times, latitudes=latitudes, longitudes=longitudes,
+                      solar_position_method=solar_position_method)
 
-    # Initialize a progress bar
-    if not silent:
-        pbar = IncrementalBar("Sun position silumations", max=num_stations * num_days)
-        pbar.suffix = '%(percent).1f%% - %(eta)ds'
+    # parallel processing
+    results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar)
 
     # Initialize output variables
-    keys = ["dni_extra", "air_mass", "zenith", "apparent_zenith", "azimuth"]
-    sky_dict = {key: np.zeros((num_lead_times, num_days, num_stations)) for key in keys}
-
-    for station_index in range(num_stations):
-
-        # Determine the current location
-        current_location = location.Location(latitude=lats[station_index], longitude=lons[station_index])
-
-        for day_index in range(num_days):
-            for lead_time_index in range(num_lead_times):
-
-                # Determine the current time
-                current_posix = days[day_index] + lead_times[lead_time_index]
-                current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
-
-                # Calculate sun position
-                solar_position = current_location.get_solarposition(current_time, method=solar_position_method, numthreads=1)
-
-                # Calculate extraterrestrial DNI
-                sky_dict["dni_extra"][lead_time_index, day_index, station_index] = \
-                    irradiance.get_extra_radiation(current_time)
-
-                # Calculate air mass
-                sky_dict["air_mass"][lead_time_index, day_index, station_index] =\
-                    atmosphere.get_relative_airmass(solar_position["apparent_zenith"])
-
-                # Store other keys
-                sky_dict["zenith"][lead_time_index, day_index, station_index] = solar_position["zenith"]
-                sky_dict["apparent_zenith"][lead_time_index, day_index, station_index] = solar_position["apparent_zenith"]
-                sky_dict["azimuth"][lead_time_index, day_index, station_index] = solar_position["azimuth"]
-
-            if not silent:
-                pbar.next()
-
-    if not silent:
-        pbar.finish()
+    sky_dict = {
+        "dni_extra": np.stack([result[0] for result in results], axis=2),
+        "air_mass": np.stack([result[1] for result in results], axis=2),
+        "zenith": np.stack([result[2] for result in results], axis=2),
+        "apparent_zenith": np.stack([result[3] for result in results], axis=2),
+        "azimuth": np.stack([result[4] for result in results], axis=2)
+    }
 
     return sky_dict
 
