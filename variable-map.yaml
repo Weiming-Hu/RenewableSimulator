@@ -35,7 +35,7 @@ tamb_obs: Temperature_2m
 wspd_obs: WindSpeed_10m
 
 # Meta variables
-lon: Xs
-lat: Ys
+longitudes: Xs
+latitudes: Ys
 test_times: test_times
 lead_times: FLTs

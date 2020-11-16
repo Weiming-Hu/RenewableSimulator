@@ -95,8 +95,8 @@ class SimulatorSolarAnalogs(Simulator):
             self.variable_dict = read_yaml(self.variable_dict)
 
         self.simulation_data = {
-            'lon': None,
-            'lat': None,
+            'longitudes': None,
+            'latitudes': None,
             'test_times': None,
             'lead_times': None,
             'analogs': {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None},
@@ -111,8 +111,8 @@ class SimulatorSolarAnalogs(Simulator):
         self.simulation_data['sky'] = simulate_sun_positions(
             days=self.simulation_data['test_times'],
             lead_times=self.simulation_data['lead_times'],
-            lats=self.simulation_data['lats'],
-            lons=self.simulation_data['lons'],
+            lats=self.simulation_data['latitudes'],
+            lons=self.simulation_data['longitudes'],
             solar_position_method=self.solar_position_method,
             silent=not self.verbose)
 
@@ -127,7 +127,7 @@ class SimulatorSolarAnalogs(Simulator):
     def summary(self):
         summary_info = 'Simulation summary:\n' + \
                        '-- {} scenarios\n'.format(self.scenarios.total_scenarios()) + \
-                       '-- {} stations\n'.format(len(self.simulation_data['lon'])) + \
+                       '-- {} stations\n'.format(len(self.simulation_data['longitudes'])) + \
                        '-- {} test times\n'.format(len(self.simulation_data['test_times'])) + \
                        '-- {} lead times\n'.format(len(self.simulation_data['lead_times'])) + \
                        '-- {} analog members\n'.format(self.simulation_data['analogs']['ghi'].shape[0]) + \
@@ -207,8 +207,8 @@ class SimulatorSolarAnalogs(Simulator):
         # Read Meta data #
         ##################
 
-        self.simulation_data['lon'] = nc.variables[self.variable_dict['lon']][self.stations_index]
-        self.simulation_data['lat'] = nc.variables[self.variable_dict['lat']][self.stations_index]
+        self.simulation_data['longitudes'] = nc.variables[self.variable_dict['longitudes']][self.stations_index]
+        self.simulation_data['latitudes'] = nc.variables[self.variable_dict['latitudes']][self.stations_index]
         self.simulation_data['test_times'] = nc.variables[self.variable_dict['test_times']][:]
         self.simulation_data['lead_times'] = nc.variables[self.variable_dict['lead_times']][:]
 
