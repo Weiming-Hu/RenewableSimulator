@@ -166,7 +166,7 @@ def simulate_sun_positions(days, lead_times, lats, lons, solar_position_method="
                 current_time = pd.Timestamp(current_posix, tz="UTC", unit='s')
 
                 # Calculate sun position
-                solar_position = current_location.get_solarposition(current_time, method=solar_position_method)
+                solar_position = current_location.get_solarposition(current_time, method=solar_position_method, numthreads=1)
 
                 # Calculate extraterrestrial DNI
                 sky_dict["dni_extra"][lead_time_index, day_index, station_index] = \
@@ -195,7 +195,7 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
                          nc, nc_ghi, nc_tamb, nc_wspd, nc_albedo, nc_day, nc_flt,
                          sky_dict, temperature, scenarios,
                          simple_clock, timestamps, log_names,
-                         station_index_start, station_index_end, rank, progress):
+                         station_index_start, station_index_end, rank, progress, parallel_netcdf):
 
     for scenario_index in range(num_scenarios):
 
@@ -212,22 +212,25 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
         # Write the scenario to the group
         for key, value in current_scenario.items():
             nc_output_group.setncattr(key, value)
+        
+        # Check whether I should add the dimension for single-analog case (e.g. forecasts and analysis)
+        if num_analogs == 1:
+            if 'single_member' not in nc_output_group.dimensions:
+                nc_output_group.createDimension('single_member', size=1)
 
         # Create an array to store power at maximum-power point
         nc_p_mp = nc_output_group.variables.get(p_mp_varname)
 
         if nc_p_mp is None:
             if num_analogs == 1:
-                if 'single_member' not in nc_output_group.dimensions:
-                    nc_output_group.createDimension('single_member', size=1)
-
                 nc_p_mp = nc_output_group.createVariable(
                     p_mp_varname, "f8", ("single_member", "num_flts", "num_test_times", "num_stations"))
             else:
                 nc_p_mp = nc_output_group.createVariable(
                     p_mp_varname, "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
 
-        nc_p_mp.set_collective(True)
+        if parallel_netcdf:
+            nc_p_mp.set_collective(True)
         nc_p_mp.long_name = p_mp_longname
 
         # Copy values from the current scenarios
@@ -243,14 +246,14 @@ def simulate_power_batch(p_mp_varname, p_mp_longname,
 
         if rank == 0 and simple_clock:
             timestamps.append(time())
-            log_names.append('Scenario {:05d} simulation'.format(scenario_index))
+            log_names.append('Scenario {:05d} simulation with {}'.format(scenario_index, p_mp_varname))
 
         # Write the simulation results with the current scenario to the NetCDF file
         nc_p_mp[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end] = p_mp
 
         if rank == 0 and simple_clock:
             timestamps.append(time())
-            log_names.append('Scenario {:05d} simulation for {}'.format(scenario_index, p_mp_varname))
+            log_names.append('Scenario {:05d} simulation for writing {}'.format(scenario_index, p_mp_varname))
 
     return
 

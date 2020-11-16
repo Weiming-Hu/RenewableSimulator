@@ -18,6 +18,7 @@ import os
 import math
 import argparse
 import datetime
+from time import time
 
 # Scientific python add-ons
 import yaml
@@ -66,7 +67,7 @@ def run_pv_simulations_with_analogs(
 
     if progress and rank == 0:
         print("Running PV simulation with AnEn ...")
-
+        
     timestamps = [time()]
     log_names = []
 
@@ -121,10 +122,11 @@ def run_pv_simulations_with_analogs(
     tamb_anen = nc.variables[variable_dict["tamb"]]
 
     # Set collective mode for better I/O
-    ghi_anen.set_collective(True)
-    albedo_anen.set_collective(True)
-    wspd_anen.set_collective(True)
-    tamb_anen.set_collective(True)
+    if parallel_netcdf:
+        ghi_anen.set_collective(True)
+        albedo_anen.set_collective(True)
+        wspd_anen.set_collective(True)
+        tamb_anen.set_collective(True)
 
     # Actually read the subset of values
     ghi_anen = ghi_anen[0:num_analogs, 0:num_lead_times, 0:num_days, station_index_start:station_index_end]
@@ -148,7 +150,8 @@ def run_pv_simulations_with_analogs(
     nc_data = nc.groups["Forecasts"].variables["Data"]
 
     # Set collective mode for better I/O
-    nc_data.set_collective(True)
+    if parallel_netcdf:
+        nc_data.set_collective(True)
 
     # Figure out which variables to read
     ghi_index, = np.where(nc.groups["Forecasts"].variables["ParameterNames"][:] == variable_dict["ghi_fcsts"])
@@ -202,8 +205,9 @@ def run_pv_simulations_with_analogs(
     obs_times = nc.groups["Observations"].variables["Times"]
 
     # Set collective mode for better I/O
-    nc_data.set_collective(True)
-    obs_times.set_collective(True)
+    if parallel_netcdf:
+        nc_data.set_collective(True)
+        obs_times.set_collective(True)
 
     # Figure out which variables to read
     ghi_index, = np.where(nc.groups["Observations"].variables["ParameterNames"][:] == variable_dict["ghi_obs"])
@@ -263,7 +267,7 @@ def run_pv_simulations_with_analogs(
         sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
         simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
         station_index_start=station_index_start, station_index_end=station_index_end,
-        rank=rank, progress=progress)
+        rank=rank, progress=progress, parallel_netcdf=parallel_netcdf)
 
     simulate_power_batch(
         p_mp_varname="forecasts", p_mp_longname="Maximum power simulation from WRF NAM forecasts",
@@ -273,7 +277,7 @@ def run_pv_simulations_with_analogs(
         sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
         simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
         station_index_start=station_index_start, station_index_end=station_index_end,
-        rank=rank, progress=progress)
+        rank=rank, progress=progress, parallel_netcdf=parallel_netcdf)
 
     simulate_power_batch(
         p_mp_varname="analysis", p_mp_longname="Maximum power simulation from WRF NAM analysis",
@@ -283,7 +287,7 @@ def run_pv_simulations_with_analogs(
         sky_dict=sky_dict, temperature=temperature, scenarios=scenarios,
         simple_clock=simple_clock, timestamps=timestamps, log_names=log_names,
         station_index_start=station_index_start, station_index_end=station_index_end,
-        rank=rank, progress=progress)
+        rank=rank, progress=progress, parallel_netcdf=parallel_netcdf)
 
     if progress and rank == 0:
         print("Power simulation is complete!")
@@ -401,7 +405,7 @@ if __name__ == '__main__':
                 raise Exception("Failed with function decorating. Did you properly use kernprof ?")
 
         elif args.profiler == "simple":
-            from time import time
+            pass
 
         else:
             raise Exception("Unsupported profiler: {}".format(args.profiler))
