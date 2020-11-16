@@ -13,6 +13,10 @@
 # The Pennsylvania State University
 #
 
+import os
+import math
+import yaml
+
 
 class Scenarios(dict):
     """
@@ -33,7 +37,7 @@ class Scenarios(dict):
 
         :return: the number of total scenarios
         """
-        total = 1;
+        total = 1
 
         for key in self:
             if isinstance(self[key], (list, tuple)):
@@ -43,8 +47,6 @@ class Scenarios(dict):
         return total
 
     def get_scenario(self, index):
-
-        import math
 
         # Check out-of-bound issues
         total_scenarios = self.total_scenarios()
@@ -69,14 +71,7 @@ class Scenarios(dict):
 
         return current_scenario
 
-    def print(self):
-        from pprint import pprint
-        print("There are {} scenarios defined by the current dictionary.".format(self.total_scenarios()))
-        pprint(self)
-
-    def write_all(self, file, overwrite=True):
-        import os
-        import yaml
+    def write_scenarios(self, file, overwrite=True):
 
         # Check output file
         if os.path.exists(file):
@@ -98,3 +93,11 @@ class Scenarios(dict):
         # Write the current scenario
         with open(file, 'w') as f:
             yaml.dump(scenarios_dict, f)
+
+    def __str__(self):
+        msg = '******************** Scenarios ********************'
+        msg += '\nTotal scenarios: {}'.format(self.total_scenarios())
+        for k, v in self.items():
+            msg += '\n  - {}: {} scenario(s)'.format(k, len(v))
+        msg += '\n**************** End of Scenarios *****************'
+        return msg

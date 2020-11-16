@@ -37,5 +37,5 @@ wspd_obs: WindSpeed_10m
 # Meta variables
 lon: Xs
 lat: Ys
-date: test_times
-flt: FLTs
+test_times: test_times
+lead_times: FLTs
