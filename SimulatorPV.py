@@ -36,17 +36,18 @@ class Simulator:
             assert isinstance(scenarios, Scenarios), 'Only accept Scenarios or yaml file path'
             self.scenarios = scenarios
 
-        if stations_index is not None:
+        self.stations_index = stations_index
+        self.verbose = verbose
+        self.simple_clock = simple_clock
+        self.simple_clock = {'timestamps': [time()], 'log_names': []}
+
+        if self.stations_index is not None:
             assert isinstance(stations_index, list), 'Station indices should be a list'
             assert len(stations_index) == len(set(stations_index)), 'Duplicates found in station indices'
 
             # Make sure the station indices are sorted
             self.stations_index = stations_index
             self.stations_index.sort()
-
-        self.verbose = verbose
-        self.simple_clock = simple_clock
-        self.simple_clock = {'timestamps': [time()], 'log_names': []}
 
     def simulate(self):
         raise NotImplementedError
