@@ -192,14 +192,14 @@ class SimulatorSolarAnalogs(Simulator):
                     value = nc_data[:, :, self.stations_index, value_index]
 
                     # Transpose dimensions to be [1 (member), lead times, test times, stations]
-                    self.simulation_data['forecasts'][value_key] = np.transpose(value, (3, 0, 1, 2))
+                    self.simulation_data[type_key][value_key] = np.transpose(value, (3, 0, 1, 2))
 
                 else:
                     # Dimensions are [test times, stations, 1 (variable)]
                     value = nc_data[:, self.stations_index, value_index]
 
                     # Transpose dimensions to be [1 (member), test times, stations]
-                    self.simulation_data['forecasts'][value_key] = np.transpose(value, (2, 0, 1))
+                    self.simulation_data[type_key][value_key] = np.transpose(value, (2, 0, 1))
 
         self._log_event('Read forecasts and observations')
 
