@@ -51,7 +51,7 @@ class SimulatorSolarAnalogs(Simulator):
                  simple_clock=False, parallel_nc=False, stations_index=None,
                  cores=1, verbose=True, disable_progress_bar=False):
 
-        if self.verbose:
+        if verbose:
             print('Initializing PV simulation with Analog Ensemble ...')
 
         super().__init__()
