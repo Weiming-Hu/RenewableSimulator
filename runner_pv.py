@@ -57,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument('--profiler', default='simple', help=profiler_message)
     parser.add_argument('--stations-index', help='A list of station indices to simulate',
                         nargs='*', type=int, default=None, dest='stations_index')
-    parser.add_argument('--force-simulate-sky-conditions', action='store_true', dest='simulate_sky_conditions',
+    parser.add_argument('--re-simulate-sky-conditions', action='store_true', dest='re_simulate_sky_conditions',
                         help='Whether to force simulating sky conditions even when it exists')
 
     # Parse arguments
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     simulator = SimulatorSolarAnalogs(args.nc, args.map, args.scenario, args.solar,
                                       mpi_size > 1, args.stations_index[start:end],
-                                      not args.simulate_sky_conditions, args.cores,
+                                      not args.re_simulate_sky_conditions, args.cores,
                                       args.verbose if mpi_rank == 0 else False,
                                       args.no_bars if mpi_rank == 0 else True)
 

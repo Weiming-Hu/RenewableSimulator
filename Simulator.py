@@ -21,7 +21,7 @@ import numpy as np
 from Timer import Timer
 from netCDF4 import Dataset
 from Scenarios import Scenarios
-from Functions import simulate_sun_positions, simulate_power, read_yaml, read_4d_array_dict, write_4d_array_dict
+from Functions import simulate_sun_positions, simulate_power, read_yaml, read_array_dict, write_array_dict
 
 
 ###################
@@ -335,7 +335,18 @@ class SimulatorSolarAnalogs(Simulator):
             if self.verbose:
                 print('Reading sky conditions ...')
 
-            sky = read_4d_array_dict(nc, 'SkyConditions', self.parallel_nc)
+            sky = read_array_dict(nc, 'SkyConditions', self.parallel_nc)
+
+            # Sanity check
+            required = ('dni_extra', 'air_mass', 'zenith', 'apparent_zenith', 'azimuth')
+            assert all([k in sky.keys() for k in required]), 'Sky condition missing. Require {}'.format(required)
+
+            expected_dims = (nc.dimensions['num_flts'].size,
+                             nc.dimensions['num_test_times'].size,
+                             nc.dimensions['num_stations'].size)
+            d_dims = [v.shape for v in sky.values()]
+            assert all([d_dims[0] == dim for dim in d_dims]), 'All arrays should have the same shape in the dictionary'
+            assert d_dims[0] == expected_dims, 'Expect dimensions {} got {}'.format(expected_dims, d_dims[0])
 
             self.timer.stop()
 
@@ -358,10 +369,10 @@ class SimulatorSolarAnalogs(Simulator):
             self.timer.start('Write sky conditions')
 
             if self.verbose:
-                print('Calculating sky conditions ...')
+                print('Writing sky conditions ...')
 
-            write_4d_array_dict(nc, 'SkyConditions', sky, ('num_flts', 'num_test_times', 'num_stations'),
-                                self.parallel_nc, self.stations_index)
+            write_array_dict(nc, 'SkyConditions', sky, ('num_flts', 'num_test_times', 'num_stations'),
+                             self.parallel_nc, self.stations_index)
 
             self.timer.stop()
 
