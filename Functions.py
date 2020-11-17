@@ -97,7 +97,16 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
                            solar_position_method="nrel_numpy",
                            disable_progress_bar=False, cores=1):
     """
-    Simulations from each input sun position and each input time.
+    Simulate sun positions
+
+    :param days: A sequence of days in UNIX time format
+    :param lead_times: A sequence of lead times in UNIX time format
+    :param latitudes: A sequence of latitudes
+    :param longitudes: A sequence of longitudes
+    :param solar_position_method: The method to use for calculating solar positions
+    :param disable_progress_bar: Whether to hide the progress bar
+    :param cores: The number of cores to use
+    :return: A disctionary with simulated results
     """
     assert (len(latitudes) == len(longitudes)), "Numbers of latitudes and longitudes are not consistent"
 
@@ -125,9 +134,27 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
 def simulate_power_by_station(station_index, ghi, tamb, wspd, albedo, days, lead_times,
                               air_mass, dni_extra, zenith, apparent_zenith, azimuth,
                               surface_tilt, surface_azimuth, pv_module, tcell_model_parameters):
-
     """
-    Simulates PV energy production
+    This is the worker function for simulating power at a specified location. This function should be used inside
+    of `simulate_power` and direct usage is discouraged.
+
+    :param station_index: A station index
+    :param ghi: See `simulate_power`
+    :param tamb: See `simulate_power`
+    :param wspd: See `simulate_power`
+    :param albedo: See `simulate_power`
+    :param days: See `simulate_power`
+    :param lead_times: See `simulate_power`
+    :param air_mass: See `simulate_power`
+    :param dni_extra: See `simulate_power`
+    :param zenith: See `simulate_power`
+    :param apparent_zenith: See `simulate_power`
+    :param azimuth: See `simulate_power`
+    :param surface_tilt: See `simulate_power`
+    :param surface_azimuth: See `simulate_power`
+    :param pv_module: A PV module
+    :param tcell_model_parameters: A set of parameters for temperature configuration
+    :return:
     """
 
     # Sanity check
@@ -201,7 +228,32 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
                    ghi, tamb, wspd, alb, days, lead_times,
                    air_mass, dni_extra, zenith, apparent_zenith, azimuth,
                    parallel_nc=False, cores=1, verbose=True, output_stations_index=None,
-                   disable_progress_bar=False, timer=None, temperature=temperature):
+                   disable_progress_bar=False, timer=None):
+    """
+    Simulate power and write to a specific group in the NetCDF file.
+
+    :param power_varname: The variable name for power simulation
+    :param power_longname: The long name for power simulation
+    :param scenarios: The scenarios to simulate
+    :param nc: An opened Dataset from netCDF4 with write access
+    :param ghi: Golbal horizontal irradiance
+    :param tamb: Ambient temperature
+    :param wspd: wind speed
+    :param alb: albedo
+    :param days: A sequence of test days in UNIX time format
+    :param lead_times: A sequence of lead times in UNIX time format
+    :param air_mass: Air mass from simulated sun positions
+    :param dni_extra: Extraterrestrial direct normal irradiance from simulated sun positions
+    :param zenith: Zenith from simulated sun positions
+    :param apparent_zenith: Apparent zenith from simulated sun positions
+    :param azimuth: Azimuth
+    :param parallel_nc: Whether to have parallel access to NetCDF
+    :param cores: Number of cores to use
+    :param verbose: Whether to be verbose
+    :param output_stations_index: Station indices used when writing output
+    :param disable_progress_bar: Whether to hide progress bars
+    :param timer: A simple timer
+    """
 
     # Sanity check
     assert ghi.shape == tamb.shape, "ghi.shape != tamb.shape"

@@ -65,6 +65,7 @@ if __name__ == '__main__':
         print('Argument summary:')
         for arg in vars(args):
             print('{}: {}'.format(arg, getattr(args, arg)))
+        print()
 
     # Start a profiler
     if args.profile:
