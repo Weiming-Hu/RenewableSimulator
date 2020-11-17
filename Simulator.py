@@ -170,7 +170,7 @@ class SimulatorSolarAnalogs(Simulator):
 
             return msg
 
-        summary_info += '\nSimulation data summary:\n' + recursive_summary(self)
+        summary_info += '\nSimulation data summary:\n' + recursive_summary(self.simulation_data)
         summary_info += '*********** End of Summary ************'
 
         return summary_info
