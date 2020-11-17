@@ -65,10 +65,10 @@ if __name__ == '__main__':
         print('Argument summary:')
         for arg in vars(args):
             print('{}: {}'.format(arg, getattr(args, arg)))
-        print('\n')
+        print()
 
     # Start a profiler
-    if args.profile:
+    if args.profile and mpi_rank == 0:
 
         if args.profiler == "yappi":
             import yappi
@@ -112,6 +112,8 @@ if __name__ == '__main__':
                                       args.verbose if mpi_rank == 0 else False,
                                       args.no_bars if mpi_rank == 0 else True)
 
+    print('\n' + simulator.summary() + '\n')
+
     simulator.simulate()
 
     ############
@@ -119,6 +121,7 @@ if __name__ == '__main__':
     ############
 
     if args.profile and mpi_rank == 0:
+
         if args.profiler == "yappi":
             current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
