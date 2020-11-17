@@ -281,6 +281,9 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
         timer.start('Write scenario {:05d}'.format(scenario_index))
 
         # Write results to the NetCDF file
+        if verbose:
+            print("Writing scenario {}/{}".format(scenario_index + 1, num_scenarios))
+
         for index in range(num_stations):
             nc_power[:, :, :, output_stations_index[index]] = results[index]
 

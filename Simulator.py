@@ -101,6 +101,9 @@ class SimulatorSolarAnalogs(Simulator):
         # Pre-calculate air mass and extraterrestrial irradiance from solar positions
         self.timer.start('Calculate sun positions')
 
+        if self.verbose:
+            print('Simulating sun positions ...')
+
         sky = simulate_sun_positions(
             days=self.simulation_data['test_times'],
             lead_times=self.simulation_data['lead_times'],
@@ -118,7 +121,7 @@ class SimulatorSolarAnalogs(Simulator):
 
         # Sanity check
         required = ['analogs', 'fcsts', 'obs', 'test_times', 'lead_times',
-                    'air_mass', 'dni_extra', 'zenith', 'apaarent_zenith', 'azimuth']
+                    'air_mass', 'dni_extra', 'zenith', 'apparent_zenith', 'azimuth']
         assert all([key in self.simulation_data.keys() for key in required]), 'Not properly initialized'
 
         # Open Connection
@@ -169,7 +172,7 @@ class SimulatorSolarAnalogs(Simulator):
         self.timer.start('Open a read connection')
 
         if self.verbose:
-            print('Open {} connection to {}'.format('parallel' if self.parallel_nc else 'sequential', self.nc_file))
+            print('Opening a {} connection to {} ...'.format('parallel' if self.parallel_nc else 'sequential', self.nc_file))
 
         nc = Dataset(self.nc_file, 'r', parallel=self.parallel_nc)
 
