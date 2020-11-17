@@ -117,7 +117,9 @@ class SimulatorSolarAnalogs(Simulator):
     def simulate(self):
 
         # Sanity check
-        assert all([key in self.simulation_data.keys() for key in ['']]), 'Not properly initialized'
+        required = ['analogs', 'fcsts', 'obs', 'test_times', 'lead_times',
+                    'air_mass', 'dni_extra', 'zenith', 'apaarent_zenith', 'azimuth']
+        assert all([key in self.simulation_data.keys() for key in required]), 'Not properly initialized'
 
         # Open Connection
         self.timer.start('Open a read connection')
