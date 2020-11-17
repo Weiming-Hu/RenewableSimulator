@@ -158,11 +158,19 @@ class SimulatorSolarAnalogs(Simulator):
                        '-- {} analog members\n'.format(self.simulation_data['analogs']['ghi'].shape[0]) + \
                        '-- {} cores\n'.format(self.cores)
 
-        summary_info += '\nSimulation data summary:\n'
+        def recursive_summary(d, prefix='--'):
+            msg = ''
 
-        for key, value in self.simulation_data.items():
-            summary_info += '-- {}: shape {}\n'.format(key, value.shape)
+            for key, value in d.items():
+                if isinstance(value, dict):
+                    msg += '{} {}:\n'.format(prefix, key)
+                    msg += recursive_summary(value, prefix + ' --')
+                else:
+                    msg += '{} {}: shape {}\n'.format(prefix, key, value.shape)
 
+            return msg
+
+        summary_info += '\nSimulation data summary:\n' + recursive_summary(self)
         summary_info += '*********** End of Summary ************'
 
         return summary_info
@@ -280,6 +288,9 @@ class SimulatorSolarAnalogs(Simulator):
         self.timer.start('Preprocess simulation data')
 
         # Change units
+        if self.verbose:
+            print('Changing units ...')
+
         for type_key in ['analogs', 'fcsts', 'obs']:
 
             # Albedo from percentage to decimal
@@ -289,6 +300,9 @@ class SimulatorSolarAnalogs(Simulator):
             self.simulation_data[type_key]['tamb'] -= 273.15
 
         # Initialize dimensions
+        if self.verbose:
+            print('Align observations ...')
+
         num_stations = len(self.simulation_data['longitudes'])
         num_lead_times = len(self.simulation_data['lead_times'])
         num_test_times = len(self.simulation_data['test_times'])
