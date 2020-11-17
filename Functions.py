@@ -410,6 +410,17 @@ def get_nc_dim_size(nc_file, dim_name, parallel_nc):
 
 
 def write_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations_index=None):
+    """
+    Write a dictionary of arrays into a new group under the given nc device.
+
+    :param nc: An NetCDF4 Dataset or Group
+    :param group_name: Group name to be created
+    :param d: A dictionary of arrays with the same dimensions
+    :param dimensions: The dimension names to be associated in the NetCDF file for arrays
+    :param parallel_nc: Whether to set collective access
+    :param output_stations_index: The indices used when writing to the output variable. This is
+    assumed to be the last dimension.
+    """
 
     # Sanity check
     d_dims = [v.shape for v in d.values()]
@@ -441,6 +452,15 @@ def write_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations
 
 
 def read_array_dict(nc, group_name, parallel_nc, stations_index=None):
+    """
+    Read a dictionary of arrays
+
+    :param nc: An NetCDF4 Dataset or Group
+    :param group_name: Group name to be created
+    :param parallel_nc: Whether to set collective access
+    :param stations_index: The indices used when reading partial arrays. This is assumed to be the last dimension.
+    :return: A dictionary of arrays
+    """
 
     # Initialization
     d = {}
