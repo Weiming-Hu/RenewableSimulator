@@ -112,7 +112,8 @@ if __name__ == '__main__':
                                       args.verbose if mpi_rank == 0 else False,
                                       args.no_bars if mpi_rank == 0 else True)
 
-    print('\n' + simulator.summary() + '\n')
+    if mpi_rank == 0:
+        print('\n' + simulator.summary() + '\n')
 
     simulator.simulate()
 
@@ -144,4 +145,4 @@ if __name__ == '__main__':
             print(heap_usage.more)
 
         elif args.profiler == "simple":
-            print(simulator.timer)
+            print('\n' + simulator.timer)
