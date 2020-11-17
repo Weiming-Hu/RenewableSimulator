@@ -18,38 +18,18 @@
 # The Pennsylvania State University
 ```
 
-`evergreen` is designed for assessing prediction uncertainty for photovoltaic energy production. It builds on top of [Analog Ensemble](https://weiming-hu.github.io/AnalogsEnsemble/) from [GEOlab](geoinf.psu.edu/) and [pvlib](https://pvlib-python.readthedocs.io/en/stable/) from Sandia National Lab.
+This project is designed for assessing prediction uncertainty for renewable energy production. It builds on top of [Analog Ensemble](https://weiming-hu.github.io/AnalogsEnsemble/) and [pvlib](https://pvlib-python.readthedocs.io/en/stable/).
 
 It is written in Python 3.
 
-## Dependency
-
-These packages are required by this project:
-
-- `pandas`
-- `numpy`
-- `netCDF4`
-- `pvlib`
-- `progress`
-- `mpi4py`
-- `pyyaml`
-- `numba`
-
-The following modules are only required during profiling:
-
-- [yappi](https://pypi.org/project/yappi/)
-- [pyinstrument](https://github.com/joerick/pyinstrument)
-- [line_profiler](https://github.com/pyutils/line_profiler)
-- [guppy3](https://github.com/zhuyifei1999/guppy3/)
-
 ## Usage
 
-For your reference, [here](https://github.com/Weiming-Hu/RenewableSimulator/issues/2) is a collection of scripts to prepare the environment on HPC platforms.
+For your reference, [here](https://github.com/Weiming-Hu/RenewableSimulator/issues/2) provides a collection of scripts to prepare the environment on HPC platforms.
 
 Once you have the environment set up, you can use the following code to see the available options:
 
 ```shell script
-python evergreen.py -h
+python runner_pv.py -h
 ```
 
 ## Profiling
@@ -58,7 +38,7 @@ python evergreen.py -h
 
 ```shell script
 # Run the program through the profiler
-python evergreen.py --profile --profiler yappi --downscale 100
+python runner_pv.py --profile --profiler yappi
 
 # On Mac OS. kcachegrind on Linux
 qcachegrind yappi_2020-04-12-18-08-48_rank-0.log
@@ -68,14 +48,14 @@ qcachegrind yappi_2020-04-12-18-08-48_rank-0.log
 
 ```shell script
 # Run the program through the profiler
-python evergreen.py --profile --profiler pyinstrument --downscale 100
+python runner_pv.py --profile --profiler pyinstrument
 ```
 
 ### line_profiler
 
 ```shell script
 # Run the program through the profiler
-kernprof -l evergreen.py --profile --profiler line_profiler --downscale 100
+kernprof -l runner_pv.py --profile --profiler line_profiler
 
 # Generate text output
 python -m line_profiler evergreen.py.lprof
@@ -86,7 +66,7 @@ python -m line_profiler evergreen.py.lprof
 If you are ready for production but still want to have a general idea of how much time was spent, the simple clock would be a good solution. It just uses `time.time()` to get current time so its overhead is pretty low.
 
 ```shell script
-python evergreen.py --profile --profiler simple
+python runner_pv.py --profile
 ```
 
 ## Feedback
