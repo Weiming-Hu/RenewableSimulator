@@ -98,10 +98,12 @@ def run_pv_simulation_with_surfrad(output_file, scenarios, year_folder, progress
 if __name__ == '__main__':
 
     scenario_message = "A dictionary defines key values for scenarios"
-    welcome_msg = "Simulate PV power supply with data from SURFRAD as ground truth. " + \
-        "To successfully run this program, you need to provide the folder root to your data." + \
-        "It is assumed that SURFRAD data files (*.dat) are organized in <root folder>/<location>/<year>, " + \
-        "e.g. /Volumes/WD3TB/SURFRAD/extracted/Boulder_CO/2018"
+    welcome_msg = "***********************************************************************\n" + \
+                  "Our pursuit of a more sustainable future with solar photovoltaic energy\n" + \
+                  "***********************************************************************\n\n" + \
+                  "This utility works with the SURFRAD dataset. To run this program, you need to provide the" + \
+                  " folder root of your data. It is assumed that SURFRAD data files (*.dat) are organized under" + \
+                  " <root folder>/<location>/<year>\n"
 
     # Define arguments
     parser = argparse.ArgumentParser(description=welcome_msg)

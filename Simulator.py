@@ -21,7 +21,7 @@ import numpy as np
 from Timer import Timer
 from netCDF4 import Dataset
 from Scenarios import Scenarios
-from Functions import simulate_sun_positions, simulate_power, read_yaml
+from Functions import simulate_sun_positions, simulate_power, read_yaml, read_4d_array_dict, write_4d_array_dict
 
 
 ###################
@@ -63,7 +63,7 @@ class Simulator:
 class SimulatorSolarAnalogs(Simulator):
 
     def __init__(self, nc_file, variable_dict, scenarios, solar_position_method='nrel_numpy',
-                 parallel_nc=False, stations_index=None,
+                 parallel_nc=False, stations_index=None, read_sky_conditions=True,
                  cores=1, verbose=True, disable_progress_bar=False):
 
         super().__init__(scenarios, stations_index, verbose)
@@ -79,8 +79,9 @@ class SimulatorSolarAnalogs(Simulator):
         self.parallel_nc = parallel_nc
         self.variable_dict = variable_dict
         self.nc_file = os.path.expanduser(nc_file)
-        self.solar_position_method = solar_position_method
+        self.read_sky_conditions = read_sky_conditions
         self.disable_progress_bar = disable_progress_bar
+        self.solar_position_method = solar_position_method
 
         # Process variable dict
         if isinstance(self.variable_dict, str):
@@ -99,24 +100,8 @@ class SimulatorSolarAnalogs(Simulator):
         # Read data from NetCDF generated from Analog Ensemble
         self._read_simulation_data()
 
-        # Pre-calculate air mass and extraterrestrial irradiance from solar positions
-        self.timer.start('Calculate sun positions')
-
-        if self.verbose:
-            print('Simulating sun positions ...')
-
-        sky = simulate_sun_positions(
-            days=self.simulation_data['test_times'],
-            lead_times=self.simulation_data['lead_times'],
-            latitudes=self.simulation_data['latitudes'],
-            longitudes=self.simulation_data['longitudes'],
-            solar_position_method=self.solar_position_method,
-            disable_progress_bar=self.disable_progress_bar,
-            cores=self.cores)
-
-        # Merge results
-        self.simulation_data = {**self.simulation_data, **sky}
-        self.timer.stop()
+        # Prepare air mass and extraterrestrial irradiance from solar positions
+        self._prepare_sky_conditions()
 
     def simulate(self):
 
@@ -130,13 +115,11 @@ class SimulatorSolarAnalogs(Simulator):
         nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
         self.timer.stop()
 
-        for key, name in {'analogs': 'Power simulation with analogs',
-                          'fcsts': 'Power simulation with forecasts',
-                          'obs': 'Power simulation with observations'}.items():
+        for name in ['analogs', 'fcsts', 'obs']:
 
-            simulate_power(key, name, self.scenarios, nc,
-                           self.simulation_data[key]['ghi'], self.simulation_data[key]['tamb'],
-                           self.simulation_data[key]['wspd'], self.simulation_data[key]['alb'],
+            simulate_power(name, self.scenarios, nc,
+                           self.simulation_data[name]['ghi'], self.simulation_data[name]['tamb'],
+                           self.simulation_data[name]['wspd'], self.simulation_data[name]['alb'],
                            self.simulation_data['test_times'], self.simulation_data['lead_times'],
                            self.simulation_data['air_mass'], self.simulation_data['dni_extra'],
                            self.simulation_data['zenith'], self.simulation_data['apparent_zenith'],
@@ -341,3 +324,47 @@ class SimulatorSolarAnalogs(Simulator):
         self.timer.stop()
 
         gc.collect()
+
+    def _prepare_sky_conditions(self):
+
+        nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
+
+        if 'SkyConditions' in nc.groups and self.read_sky_conditions:
+            self.timer.start('Read sky conditions')
+
+            if self.verbose:
+                print('Reading sky conditions ...')
+
+            sky = read_4d_array_dict(nc, 'SkyConditions', self.parallel_nc)
+
+            self.timer.stop()
+
+        else:
+            self.timer.start('Calculate sky conditions')
+
+            if self.verbose:
+                print('Calculating sky conditions ...')
+
+            sky = simulate_sun_positions(
+                days=self.simulation_data['test_times'],
+                lead_times=self.simulation_data['lead_times'],
+                latitudes=self.simulation_data['latitudes'],
+                longitudes=self.simulation_data['longitudes'],
+                solar_position_method=self.solar_position_method,
+                disable_progress_bar=self.disable_progress_bar,
+                cores=self.cores)
+
+            self.timer.stop()
+            self.timer.start('Write sky conditions')
+
+            if self.verbose:
+                print('Calculating sky conditions ...')
+
+            write_4d_array_dict(nc, 'SkyConditions', sky, ('num_flts', 'num_test_times', 'num_stations'),
+                                self.parallel_nc, self.stations_index)
+
+            self.timer.stop()
+
+        # Merge results
+        assert all([k not in sky.keys() for k in self.simulation_data.keys()]), 'Duplicate names found during merging'
+        self.simulation_data = {**self.simulation_data, **sky}

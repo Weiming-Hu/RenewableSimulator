@@ -13,6 +13,7 @@
 # The Pennsylvania State University
 #
 
+import gc
 import os
 import math
 import yaml
@@ -28,16 +29,9 @@ from tqdm.contrib.concurrent import process_map
 from pvlib import pvsystem, irradiance, iotools, location, atmosphere, temperature
 
 
-def read_yaml(file):
-    with open(os.path.expanduser(file)) as f:
-        content = yaml.load(f, Loader=yaml.FullLoader)
-    return content
-
-
-def get_nc_dim_size(nc_file, dim_name, parallel_nc):
-    nc = Dataset(nc_file, 'r', parallel=parallel_nc)
-    return nc.dimensions[dim_name].size
-
+##############
+# Simulation #
+##############
 
 def simulate_sun_positions_by_station(station_index, days, lead_times, latitudes, longitudes, solar_position_method):
     """
@@ -128,6 +122,8 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
         "azimuth": np.stack([result[4] for result in results], axis=2)
     }
 
+    gc.collect()
+
     return sky_dict
 
 
@@ -167,6 +163,8 @@ def simulate_power_by_station(station_index, ghi, tamb, wspd, albedo, days, lead
 
     # Initialization
     p_mp = np.zeros((num_analogs, num_lead_times, num_days))
+    tcell = np.zeros((num_analogs, num_lead_times, num_days))
+    effective_irradiance = np.zeros((num_analogs, num_lead_times, num_days))
 
     for day_index in range(num_days):
         for lead_time_index in range(num_lead_times):
@@ -207,24 +205,25 @@ def simulate_power_by_station(station_index, ghi, tamb, wspd, albedo, days, lead
                 poa_irradiance = irradiance.poa_components(aoi, dni_dict["dni"], poa_sky_diffuse, poa_ground_diffuse)
 
                 # Calculate cell temperature
-                tcell = pvsystem.temperature.sapm_cell(
+                tcell[analog_index, lead_time_index, day_index] = pvsystem.temperature.sapm_cell(
                     poa_irradiance['poa_global'], tamb_, wspd_, tcell_model_parameters['a'],
                     tcell_model_parameters['b'], tcell_model_parameters["deltaT"])
 
                 # Calculate effective irradiance
-                effective_irradiance = pvsystem.sapm_effective_irradiance(
+                effective_irradiance[analog_index, lead_time_index, day_index] = pvsystem.sapm_effective_irradiance(
                     poa_irradiance['poa_direct'], poa_irradiance['poa_diffuse'], air_mass_, aoi, pv_module)
 
                 # Calculate power
-                sapm_out = pvsystem.sapm(effective_irradiance, tcell, pv_module)
+                sapm_out = pvsystem.sapm(effective_irradiance[analog_index, lead_time_index, day_index],
+                                         tcell[analog_index, lead_time_index, day_index], pv_module)
 
                 # Save output to numpy
                 p_mp[analog_index, lead_time_index, day_index] = sapm_out["p_mp"]
 
-    return p_mp
+    return [p_mp, tcell, effective_irradiance]
 
 
-def simulate_power(power_varname, power_longname, scenarios, nc,
+def simulate_power(group_name, scenarios, nc,
                    ghi, tamb, wspd, alb, days, lead_times,
                    air_mass, dni_extra, zenith, apparent_zenith, azimuth,
                    parallel_nc=False, cores=1, verbose=True, output_stations_index=None,
@@ -232,8 +231,7 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
     """
     Simulate power and write to a specific group in the NetCDF file.
 
-    :param power_varname: The variable name for power simulation
-    :param power_longname: The long name for power simulation
+    :param group_name: The group name to be created under the scenario group
     :param scenarios: The scenarios to simulate
     :param nc: An opened Dataset from netCDF4 with write access
     :param ghi: Golbal horizontal irradiance
@@ -281,38 +279,28 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
         timer.start('Simulate scenario {:05d}'.format(scenario_index))
 
         if verbose:
-            print("Simulating scenario {}/{}: {}".format(scenario_index + 1, num_scenarios, power_longname))
+            print("Simulating scenario {}/{} with sub-group name {}".format(
+                scenario_index + 1, num_scenarios, group_name))
 
         # Extract current scenario
         current_scenario = scenarios.get_scenario(scenario_index)
 
         # Create a group for the current scenario
-        nc_output_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
+        nc_scenario_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
 
         # Write the scenario to the group
         for key, value in current_scenario.items():
-            nc_output_group.setncattr(key, value)
+            nc_scenario_group.setncattr(key, value)
 
         # Check whether I should add the dimension for single-member cases (e.g. forecasts and analysis)
         if num_analogs == 1:
-            if 'single_member' not in nc_output_group.dimensions:
-                nc_output_group.createDimension('single_member', size=1)
+            if 'single_member' not in nc_scenario_group.dimensions:
+                nc_scenario_group.createDimension('single_member', size=1)
 
-        # Create an array to store power at maximum-power point
-        nc_power = nc_output_group.variables.get(power_varname)
+            output_dims = ("single_member", "num_flts", "num_test_times", "num_stations")
 
-        if nc_power is None:
-            if num_analogs == 1:
-                nc_power = nc_output_group.createVariable(
-                    power_varname, "f8", ("single_member", "num_flts", "num_test_times", "num_stations"))
-            else:
-                nc_power = nc_output_group.createVariable(
-                    power_varname, "f8", ("num_analogs", "num_flts", "num_test_times", "num_stations"))
-
-        if parallel_nc:
-            nc_power.set_collective(True)
-
-        nc_power.long_name = power_longname
+        else:
+            output_dims = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
         # Create a wrapper function
         wrapper = partial(
@@ -329,6 +317,12 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
         results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
                               chunksize=1 if num_stations < 1000 else int(num_stations / 100))
 
+        results = {
+            "power": np.stack([result[0] for result in results], axis=3),
+            "tcell": np.stack([result[1] for result in results], axis=3),
+            "effective_irradiance": np.stack([result[2] for result in results], axis=3)
+        }
+
         timer.stop()
         timer.start('Write scenario {:05d}'.format(scenario_index))
 
@@ -336,13 +330,15 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
         if verbose:
             print("Writing scenario {}/{}".format(scenario_index + 1, num_scenarios))
 
-        for index in range(num_stations):
-            nc_power[:, :, :, output_stations_index[index]] = results[index]
+        write_4d_array_dict(nc_scenario_group, group_name, results, output_dims, parallel_nc, output_stations_index)
 
         timer.stop()
+        gc.collect()
 
-    return
 
+#######################
+# MPI parallelization #
+#######################
 
 def get_start_index(total, num_procs, rank):
     """
@@ -396,6 +392,70 @@ def get_sub_total(total, num_procs, rank):
     :return: The number of instances for the given rank
     """
     return get_end_index(total, num_procs, rank) - get_start_index(total, num_procs, rank) + 1
+
+
+############
+# File I/O #
+############
+
+def read_yaml(file):
+    with open(os.path.expanduser(file)) as f:
+        content = yaml.load(f, Loader=yaml.FullLoader)
+    return content
+
+
+def get_nc_dim_size(nc_file, dim_name, parallel_nc):
+    nc = Dataset(nc_file, 'r', parallel=parallel_nc)
+    return nc.dimensions[dim_name].size
+
+
+def write_4d_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations_index):
+
+    # Sanity check
+    d_dims = [v.shape for v in d.values()]
+    assert all([d_dims[0] == dim for dim in d_dims]), 'All arrays should have the same shape in the dictionary'
+    assert len(d_dims[0]) == len(dimensions), 'The specified dimensions do not match array dimensions'
+
+    # Create a group for the current scenario
+    nc_group = nc.createGroup(group_name)
+
+    # Write variables
+    for k, v in d.items():
+
+        # Get a variable device
+        var = nc_group.variables.get(k)
+
+        if var is None:
+            var = nc_group.createVariable(k, "f8", dimensions)
+
+        # Set parallel access
+        if parallel_nc:
+            var.set_collective(True)
+
+        var[:, :, :, output_stations_index] = v
+
+    gc.collect()
+
+
+def read_4d_array_dict(nc, group_name, parallel_nc):
+
+    # Initialization
+    d = {}
+
+    # Get access to the group
+    nc_group = nc.groups[group_name]
+
+    # Read data
+    for k, v in nc_group.variables.items():
+
+        if parallel_nc:
+            k.set_collective(True)
+
+        d[k] = v[:]
+
+    gc.collect()
+
+    return d
 
 
 def read_hourly_surfrad(folder, progress=True):
