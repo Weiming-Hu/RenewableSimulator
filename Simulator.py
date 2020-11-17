@@ -149,7 +149,7 @@ class SimulatorSolarAnalogs(Simulator):
             print("Power simulation is complete!")
 
     def summary(self):
-        summary_info = '*************** Summary ***************' + \
+        summary_info = '*************** Summary ***************\n' + \
                        'Overview:\n' + \
                        '-- {} scenarios\n'.format(self.scenarios.total_scenarios()) + \
                        '-- {} stations\n'.format(len(self.simulation_data['longitudes'])) + \
