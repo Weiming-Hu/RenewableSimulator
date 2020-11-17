@@ -110,6 +110,19 @@ if __name__ == '__main__':
     start = get_start_index(num_stations, mpi_size, mpi_rank)
     end = get_end_index(num_stations, mpi_size, mpi_rank)
 
+    if mpi_size > 1:
+        if mpi_rank == 0:
+            print('{} workers (processes) have been initialized.'.format(mpi_size))
+
+        for rank in range(mpi_size):
+            if rank == mpi_rank:
+                print('Worker {}/{} processes stations index [{}, {}] out of {} indices in total.'.format(
+                    mpi_rank, mpi_size, start, end, num_stations))
+            MPI.COMM_WORLD.Barrier()
+
+        if mpi_rank == 0:
+            print('\n')
+
     simulator = SimulatorSolarAnalogs(args.nc, args.map, args.scenario, args.solar,
                                       mpi_size > 1, args.stations_index[start:end],
                                       not args.re_simulate_sky_conditions, args.cores,
