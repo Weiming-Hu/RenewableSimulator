@@ -336,7 +336,7 @@ class SimulatorSolarAnalogs(Simulator):
             if self.verbose:
                 print('Reading sky conditions ...')
 
-            sky = read_array_dict(nc, 'SkyConditions', self.parallel_nc)
+            sky = read_array_dict(nc, 'SkyConditions', self.parallel_nc, self.stations_index)
 
             # Sanity check
             required = ('dni_extra', 'air_mass', 'zenith', 'apparent_zenith', 'azimuth')

@@ -409,13 +409,12 @@ def get_nc_dim_size(nc_file, dim_name, parallel_nc):
     return nc.dimensions[dim_name].size
 
 
-def write_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations_index):
+def write_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations_index=None):
 
     # Sanity check
     d_dims = [v.shape for v in d.values()]
     assert all([d_dims[0] == dim for dim in d_dims]), 'All arrays should have the same shape in the dictionary'
     assert len(d_dims[0]) == len(dimensions), 'The specified dimensions do not match array dimensions'
-    assert len(dimensions) == 3 or len(dimensions) == 4, 'Only support writing 3-/4- dimensional arrays'
 
     # Create a group for the current scenario
     nc_group = nc.createGroup(group_name)
@@ -433,15 +432,15 @@ def write_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations
         if parallel_nc:
             var.set_collective(True)
 
-        if len(dimensions) == 3:
-            var[:, :, output_stations_index] = v
-        elif len(dimensions) == 4:
-            var[:, :, :, output_stations_index] = v
+        if output_stations_index is None:
+            var[:] = v
+        else:
+            var[..., output_stations_index] = v
 
     gc.collect()
 
 
-def read_array_dict(nc, group_name, parallel_nc):
+def read_array_dict(nc, group_name, parallel_nc, stations_index=None):
 
     # Initialization
     d = {}
@@ -455,7 +454,10 @@ def read_array_dict(nc, group_name, parallel_nc):
         if parallel_nc:
             v.set_collective(True)
 
-        d[k] = v[:]
+        if stations_index is None:
+            d[k] = v[:]
+        else:
+            d[k] = v[..., stations_index]
 
     gc.collect()
 
