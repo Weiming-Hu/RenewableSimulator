@@ -107,7 +107,8 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
                       solar_position_method=solar_position_method)
 
     # parallel processing
-    results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar)
+    results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
+                              chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
 
     # Initialize output variables
     sky_dict = {
@@ -273,7 +274,8 @@ def simulate_power(power_varname, power_longname, scenarios, nc,
                 "sapm"][current_scenario["tcell_model_parameters"]])
 
         # Simulate with the current scenario
-        results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar)
+        results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
+                              chunksize=1 if num_stations < 1000 else int(num_stations / 100))
 
         timer.stop()
         timer.start('Write scenario {:05d}'.format(scenario_index))
