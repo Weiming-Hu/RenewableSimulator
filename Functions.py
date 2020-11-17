@@ -453,7 +453,7 @@ def read_array_dict(nc, group_name, parallel_nc):
     for k, v in nc_group.variables.items():
 
         if parallel_nc:
-            k.set_collective(True)
+            v.set_collective(True)
 
         d[k] = v[:]
 
