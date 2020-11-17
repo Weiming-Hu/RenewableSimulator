@@ -17,10 +17,10 @@ import os
 
 import numpy as np
 
-from time import time
+from Timer import Timer
 from netCDF4 import Dataset
 from Scenarios import Scenarios
-from Functions import simulate_sun_positions, read_yaml
+from Functions import simulate_sun_positions, simulate_power, read_yaml
 
 
 ###################
@@ -28,7 +28,7 @@ from Functions import simulate_sun_positions, read_yaml
 ###################
 
 class Simulator:
-    def __init__(self, scenarios, simple_clock=False, stations_index=None, verbose=True):
+    def __init__(self, scenarios, stations_index=None, verbose=True):
 
         if isinstance(scenarios, str):
             self.scenarios = Scenarios(read_yaml(scenarios))
@@ -38,8 +38,7 @@ class Simulator:
 
         self.stations_index = stations_index
         self.verbose = verbose
-        self.simple_clock = simple_clock
-        self.simple_clock = {'timestamps': [time()], 'log_names': []}
+        self.timer = Timer()
 
         if self.stations_index is not None:
             assert isinstance(stations_index, list), 'Station indices should be a list'
@@ -52,16 +51,8 @@ class Simulator:
     def simulate(self):
         raise NotImplementedError
 
-    def write(self):
-        raise NotImplementedError
-
     def summary(self):
         raise NotImplementedError
-
-    def _log_event(self, log_name):
-        if self.simple_clock:
-            self.simple_clock['timestamps'].append(time())
-            self.simple_clock['log_names'].append(log_name)
 
 
 ###############################
@@ -71,10 +62,10 @@ class Simulator:
 class SimulatorSolarAnalogs(Simulator):
 
     def __init__(self, nc_file, variable_dict, scenarios, solar_position_method='nrel_numpy',
-                 simple_clock=False, parallel_nc=False, stations_index=None,
+                 parallel_nc=False, stations_index=None,
                  cores=1, verbose=True, disable_progress_bar=False):
 
-        super().__init__(scenarios, simple_clock, stations_index, verbose)
+        super().__init__(scenarios, stations_index, verbose)
 
         if self.verbose:
             print('Initializing PV simulation with Analog Ensemble ...')
@@ -108,7 +99,9 @@ class SimulatorSolarAnalogs(Simulator):
         self._read_simulation_data()
 
         # Pre-calculate air mass and extraterrestrial irradiance from solar positions
-        self.simulation_data['sky'] = simulate_sun_positions(
+        self.timer.start('Calculate sun positions')
+
+        sky = simulate_sun_positions(
             days=self.simulation_data['test_times'],
             lead_times=self.simulation_data['lead_times'],
             latitudes=self.simulation_data['latitudes'],
@@ -117,28 +110,62 @@ class SimulatorSolarAnalogs(Simulator):
             disable_progress_bar=self.disable_progress_bar,
             cores=self.cores)
 
-        self._log_event('Calculate sun positions')
+        # Merge results
+        self.simulation_data = {**self.simulation_data, **sky}
+        self.timer.stop()
 
     def simulate(self):
-        pass
 
-    def write(self):
-        pass
+        # Sanity check
+        assert all([key in self.simulation_data.keys() for key in ['']]), 'Not properly initialized'
+
+        # Open Connection
+        self.timer.start('Open a read connection')
+        nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
+        self.timer.stop()
+
+        for key, name in {'analogs': 'Power simulation with analogs',
+                          'fcsts': 'Power simulation with forecasts',
+                          'obs': 'Power simulation with observations'}.items():
+
+            simulate_power(key, name, self.scenarios, nc,
+                           self.simulation_data[key]['ghi'], self.simulation_data[key]['tamb'],
+                           self.simulation_data[key]['wspd'], self.simulation_data[key]['alb'],
+                           self.simulation_data['test_times'], self.simulation_data['lead_times'],
+                           self.simulation_data['air_mass'], self.simulation_data['dni_extra'],
+                           self.simulation_data['zenith'], self.simulation_data['apparent_zenith'],
+                           self.simulation_data['azimuth'], self.parallel_nc, self.cores, self.verbose,
+                           self.stations_index, self.disable_progress_bar, self.timer)
+
+        nc.close()
+
+        if self.verbose:
+            print("Power simulation is complete!")
 
     def summary(self):
-        summary_info = 'Simulation summary:\n' + \
+        summary_info = '*************** Summary ***************' + \
+                       'Overview:\n' + \
                        '-- {} scenarios\n'.format(self.scenarios.total_scenarios()) + \
                        '-- {} stations\n'.format(len(self.simulation_data['longitudes'])) + \
                        '-- {} test times\n'.format(len(self.simulation_data['test_times'])) + \
                        '-- {} lead times\n'.format(len(self.simulation_data['lead_times'])) + \
                        '-- {} analog members\n'.format(self.simulation_data['analogs']['ghi'].shape[0]) + \
-                       '-- {} processes to be created'.format(self.cores)
+                       '-- {} cores\n'.format(self.cores)
+
+        summary_info += '\nSimulation data summary:\n'
+
+        for key, value in self.simulation_data.items():
+            summary_info += '-- {}: shape {}\n'.format(key, value.shape)
+
+        summary_info += '*********** End of Summary ************'
 
         return summary_info
 
     def _read_simulation_data(self):
 
         # Open connection
+        self.timer.start('Open a read connection')
+
         if self.verbose:
             print('Open {} connection to {}'.format('parallel' if self.parallel_nc else 'sequential', self.nc_file))
 
@@ -149,9 +176,13 @@ class SimulatorSolarAnalogs(Simulator):
             num_stations = nc.dimensions['num_stations'].size
             self.stations_index = list(range(num_stations))
 
+        self.timer.stop()
+
         ####################
         # Read analog data #
         ####################
+        self.timer.start('Read analogs')
+
         if self.verbose:
             print('Reading analogs ...')
 
@@ -167,11 +198,13 @@ class SimulatorSolarAnalogs(Simulator):
             # Dimensions are [members, lead times, test times, stations]
             self.simulation_data['analogs'][value_key] = variable[:, :, :, self.stations_index]
 
-        self._log_event('Read analogs')
+        self.timer.stop()
 
         ######################################
         # Read forecast and observation data #
         ######################################
+        self.timer.start('Read forecasts and observations')
+
         if self.verbose:
             print('Reading forecasts and observations ...')
 
@@ -204,22 +237,41 @@ class SimulatorSolarAnalogs(Simulator):
                     value = nc_data[:, self.stations_index, value_index]
 
                     # Transpose dimensions to be [1 (member), test times, stations]
-                    self.simulation_data[type_key][value_key] = np.transpose(value, (2, 0, 1))
+                    value = np.transpose(value, (2, 0, 1))
 
-        self._log_event('Read forecasts and observations')
+                    # Expand a dimension to be [1 (member), 1 (lead time) , test times, stations]
+                    self.simulation_data[type_key][value_key] = np.expand_dims(value, axis=1)
+
+        self.timer.stop()
 
         ##################
         # Read Meta data #
         ##################
+        self.timer.start('Read meta')
 
-        self.simulation_data['longitudes'] = nc.variables[self.variable_dict['longitudes']][self.stations_index]
-        self.simulation_data['latitudes'] = nc.variables[self.variable_dict['latitudes']][self.stations_index]
-        self.simulation_data['test_times'] = nc.variables[self.variable_dict['test_times']][:]
-        self.simulation_data['lead_times'] = nc.variables[self.variable_dict['lead_times']][:]
+        for key in ['longitudes', 'latitudes']:
+            variable = nc.variables[self.variable_dict[key]]
+
+            if self.parallel_nc:
+                variable.set_collective(True)
+
+            self.simulation_data[key] = variable[self.stations_index]
+
+        for key in ['test_times', 'lead_times']:
+            variable = nc.variables[self.variable_dict[key]]
+
+            if self.parallel_nc:
+                variable.set_collective(True)
+
+            self.simulation_data[key] = variable[:]
+
+        self.timer.stop()
 
         ###################
         # Unit conversion #
         ###################
+
+        self.timer.start('Change units')
 
         for type_key in ['analogs', 'fcsts', 'obs']:
 
@@ -230,5 +282,4 @@ class SimulatorSolarAnalogs(Simulator):
             self.simulation_data[type_key]['tamb'] -= 273.15
 
         nc.close()
-
-        self._log_event('Preprocess simulation data')
+        self.timer.stop()
