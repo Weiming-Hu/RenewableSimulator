@@ -149,4 +149,5 @@ if __name__ == '__main__':
             print(heap_usage.more)
 
         elif args.profiler == "simple":
-            print('\n' + simulator.timer)
+            print()
+            print(simulator.timer)
