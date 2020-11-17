@@ -62,6 +62,9 @@ if __name__ == '__main__':
 
     if args.verbose and mpi_rank == 0:
         print(welcome_msg)
+        print('Argument summary:')
+        for arg in vars(args):
+            print('{}: {}'.format(arg, getattr(args, arg)))
 
     # Start a profiler
     if args.profile:

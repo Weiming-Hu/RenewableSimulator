@@ -131,7 +131,7 @@ def simulate_power_by_station(station_index, ghi, tamb, wspd, albedo, days, lead
     """
 
     # Sanity check
-    assert 0 < station_index < ghi.shape[3], 'Invalid station index'
+    assert 0 <= station_index < ghi.shape[3], 'Invalid station index'
 
     # Determine the dimensions
     num_analogs = ghi.shape[0]
