@@ -164,7 +164,8 @@ class SimulatorSolarAnalogs(Simulator):
         self.timer.start('Open a read connection')
 
         if self.verbose:
-            print('Opening a {} connection to {} ...'.format('parallel' if self.parallel_nc else 'sequential', self.nc_file))
+            print('Opening a {} connection to {} ...'.format(
+                'parallel' if self.parallel_nc else 'sequential', self.nc_file))
 
         nc = Dataset(self.nc_file, 'r', parallel=self.parallel_nc)
 
@@ -284,7 +285,7 @@ class SimulatorSolarAnalogs(Simulator):
 
         # Initialize dimensions
         if self.verbose:
-            print('Align observations ...')
+            print('Aligning observations ...')
 
         num_stations = len(self.simulation_data['longitudes'])
         num_lead_times = len(self.simulation_data['lead_times'])
@@ -343,7 +344,8 @@ class SimulatorSolarAnalogs(Simulator):
 
             expected_dims = (nc.dimensions['num_flts'].size,
                              nc.dimensions['num_test_times'].size,
-                             nc.dimensions['num_stations'].size)
+                             len(self.stations_index))
+
             d_dims = [v.shape for v in sky.values()]
             assert all([d_dims[0] == dim for dim in d_dims]), 'All arrays should have the same shape in the dictionary'
             assert d_dims[0] == expected_dims, 'Expect dimensions {} got {}'.format(expected_dims, d_dims[0])
