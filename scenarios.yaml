@@ -24,6 +24,12 @@ surface_azimuth:
 
 tcell_model_parameters:
   - open_rack_glass_glass
+  - close_mount_glass_glass
+  - open_rack_glass_polymer
+  - insulated_back_glass_polymer
 
 pv_module:
   - Silevo_Triex_U300_Black__2014_
+  - Advent_Solar_Ventura_210___2008_
+  - Canadian_Solar_CS6X_300M__2013_
+  - Aleo_S16_180__2007__E__
