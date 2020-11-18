@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--cores', help="How many cores to use for each process", required=False, default=1, type=int)
     parser.add_argument('--verbose', help="Print verbose messages", action='store_true')
     parser.add_argument('--no-bars', help="Disable progress bars", action='store_true', dest='no_bars')
-    parser.add_argument('--no-profile', help="Turn off simple clock profiling", action='store_true', desk='no_profile')
+    parser.add_argument('--no-profile', help="Turn off simple clock profiling", action='store_true', dest='no_profile')
 
     # Parse arguments
     args = parser.parse_args()
