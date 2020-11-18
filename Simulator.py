@@ -12,16 +12,14 @@
 # Department of Geography and Institute for CyberScience
 # The Pennsylvania State University
 #
-
-import os
 import gc
 
-import numpy as np
-
+from glob import glob
+from Functions import *
 from Timer import Timer
+from pvlib import iotools
 from netCDF4 import Dataset
 from Scenarios import Scenarios
-from Functions import simulate_sun_positions, simulate_power, read_yaml, read_array_dict, write_array_dict
 
 
 ###################
@@ -29,17 +27,42 @@ from Functions import simulate_sun_positions, simulate_power, read_yaml, read_ar
 ###################
 
 class Simulator:
-    def __init__(self, scenarios, stations_index=None, verbose=True):
+    def __init__(self, scenarios, verbose=True):
 
         if isinstance(scenarios, str):
-            self.scenarios = Scenarios(read_yaml(scenarios))
+            self.scenarios = Scenarios(read_yaml(os.path.expanduser(scenarios)))
         else:
             assert isinstance(scenarios, Scenarios), 'Only accept Scenarios or yaml file path'
             self.scenarios = scenarios
 
-        self.stations_index = stations_index
         self.verbose = verbose
         self.timer = Timer()
+
+    def simulate(self):
+        raise NotImplementedError
+
+    def summary(self):
+        raise NotImplementedError
+
+
+########################
+# Class SimulatorSolar #
+########################
+
+class SimulatorSolar(Simulator):
+    def __init__(self, nc_file, scenarios, solar_position_method='nrel_numpy',
+                 parallel_nc=False, stations_index=None, read_sky_conditions=True,
+                 cores=1, verbose=True, disable_progress_bar=False):
+
+        super().__init__(scenarios, verbose)
+
+        self.cores = cores
+        self.parallel_nc = parallel_nc
+        self.stations_index = stations_index
+        self.nc_file = os.path.expanduser(nc_file)
+        self.read_sky_conditions = read_sky_conditions
+        self.disable_progress_bar = disable_progress_bar
+        self.solar_position_method = solar_position_method
 
         if self.stations_index is not None:
             assert isinstance(stations_index, list), 'Station indices should be a list'
@@ -49,59 +72,323 @@ class Simulator:
             self.stations_index = stations_index
             self.stations_index.sort()
 
+        # A predefined dictionary format
+        self.simulation_data = {'longitudes': None, 'latitudes': None, 'test_times': None, 'lead_times': None}
+
+        # This function populate the dictionary with simulation data
+        self._read_simulation_data()
+        gc.collect()
+
+        # Prepare air mass and extraterrestrial irradiance from solar positions
+        self._prepare_sky_conditions()
+        gc.collect()
+
     def simulate(self):
         raise NotImplementedError
 
     def summary(self):
+        summary_info = '*************** Summary ***************\n' + \
+                       'Overview:\n' + \
+                       '-- {} scenarios\n'.format(self.scenarios.total_scenarios()) + \
+                       '-- {} stations\n'.format(len(self.simulation_data['longitudes'])) + \
+                       '-- {} test times\n'.format(len(self.simulation_data['test_times'])) + \
+                       '-- {} lead times\n'.format(len(self.simulation_data['lead_times'])) + \
+                       '-- {} cores\n'.format(self.cores)
+
+        summary_info += '\nSimulation data summary:\n' + recursive_summary_dict(self.simulation_data)
+        summary_info += '*********** End of Summary ************'
+
+        return summary_info
+
+    def _read_simulation_data(self):
         raise NotImplementedError
+
+    def _prepare_sky_conditions(self):
+
+        nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
+
+        if 'SkyConditions' in nc.groups and self.read_sky_conditions:
+            self.timer.start('Read sky conditions')
+
+            if self.verbose:
+                print('Reading sky conditions ...')
+
+            sky = read_array_dict(nc, 'SkyConditions', self.parallel_nc, self.stations_index)
+
+            # Sanity check
+            required = ('dni_extra', 'air_mass', 'zenith', 'apparent_zenith', 'azimuth')
+            assert all([k in sky.keys() for k in required]), 'Sky condition missing. Require {}'.format(required)
+
+            expected_dims = (nc.dimensions['num_flts'].size,
+                             nc.dimensions['num_test_times'].size,
+                             len(self.stations_index))
+
+            d_dims = [v.shape for v in sky.values()]
+            assert all([d_dims[0] == dim for dim in d_dims]), 'All arrays should have the same shape in the dictionary'
+            assert d_dims[0] == expected_dims, 'Expect dimensions {} got {}'.format(expected_dims, d_dims[0])
+
+            self.timer.stop()
+
+        else:
+            self.timer.start('Calculate sky conditions')
+
+            if self.verbose:
+                print('Calculating sky conditions ...')
+
+            sky = simulate_sun_positions(
+                days=self.simulation_data['test_times'],
+                lead_times=self.simulation_data['lead_times'],
+                latitudes=self.simulation_data['latitudes'],
+                longitudes=self.simulation_data['longitudes'],
+                solar_position_method=self.solar_position_method,
+                disable_progress_bar=self.disable_progress_bar,
+                cores=self.cores)
+
+            self.timer.stop()
+            self.timer.start('Write sky conditions')
+
+            if self.verbose:
+                print('Writing sky conditions ...')
+
+            write_array_dict(nc, 'SkyConditions', sky, ('num_flts', 'num_test_times', 'num_stations'),
+                             self.parallel_nc, self.stations_index)
+
+            self.timer.stop()
+
+        # Merge results
+        assert all([k not in sky.keys() for k in self.simulation_data.keys()]), 'Duplicate names found during merging'
+        self.simulation_data = {**self.simulation_data, **sky}
+
+
+###############################
+# Class SimulatorSolarSurfrad #
+###############################
+
+class SimulatorSolarSurfrad(SimulatorSolar):
+
+    def __init__(self, data_folder, nc_file, scenarios, file_ext='.dat', solar_position_method='nrel_numpy',
+                 cores=1, verbose=True, disable_progress_bar=False):
+
+        if verbose:
+            print('Initializing PV simulation with SURFRAD ...')
+
+        self.data_folder = os.path.expanduser(data_folder)
+        assert os.path.isdir(self.data_folder), '{} does not exist'.format(self.data_folder)
+
+        # Extract available data files
+        match = os.path.join(self.data_folder, "**/*{}".format(file_ext))
+        self.data_files = [f for f in glob(match, recursive=True)]
+        assert len(self.data_files) > 0, 'No files have been found with the match criteria {}'.format(match)
+
+        super().__init__(nc_file, scenarios, solar_position_method, False, None,
+                         False, cores, verbose, disable_progress_bar)
+
+    def simulate(self):
+
+        # Sanity check
+        required = ['surfrad', 'test_times', 'lead_times', 'air_mass',
+                    'dni_extra', 'zenith', 'apparent_zenith', 'azimuth']
+        assert all([key in self.simulation_data.keys() for key in required]), 'Not properly initialized'
+
+        # Open Connection
+        nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
+
+        simulate_power('surfrad', self.scenarios, nc,
+                       self.simulation_data['surfrad']['ghi'], self.simulation_data['surfrad']['tamb'],
+                       self.simulation_data['surfrad']['wspd'], self.simulation_data['surfrad']['alb'],
+                       self.simulation_data['test_times'], self.simulation_data['lead_times'],
+                       self.simulation_data['air_mass'], self.simulation_data['dni_extra'],
+                       self.simulation_data['zenith'], self.simulation_data['apparent_zenith'],
+                       self.simulation_data['azimuth'], self.parallel_nc, self.cores, self.verbose,
+                       self.stations_index, self.disable_progress_bar, self.timer)
+
+        nc.close()
+        gc.collect()
+
+        if self.verbose:
+            print("Power simulation is complete!")
+
+    def _read_simulation_data(self):
+
+        #############
+        # Read data #
+        #############
+
+        self.timer.start('Read files')
+
+        if self.verbose:
+            print('Reading {} SURFRAD files ...'.format(len(self.data_files)))
+
+        data = process_map(iotools.read_surfrad, self.data_files, max_workers=self.cores,
+                           disable=self.disable_progress_bar,
+                           chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
+
+        self.timer.stop()
+
+        ########################
+        # Lists to data frames #
+        ########################
+
+        self.timer.start('Lists to data frames')
+
+        if self.verbose:
+            print('Formatting SURFRAD data ...')
+
+        # Add stations to each separate data frame
+        for value in data:
+            value[0]['_station_'] = value[1]['name']
+
+        data = {
+            'meta': pd.DataFrame([list(v[1].values()) for v in data], columns=data[0][1].keys()),
+            'value': pd.concat([v[0] for v in data])
+        }
+
+        # Remove duplicated rows
+        data['meta'] = data['meta'].drop_duplicates()
+
+        self.timer.stop()
+
+        #########################
+        # Data frames to arrays #
+        #########################
+
+        self.timer.start('Data frames to arrays')
+
+        # Calculate unix time
+        posix_start = pd.Timestamp('1970/1/1', tz='UTC')
+        times_delta = data['value'].index - posix_start
+        unix_times = times_delta.total_seconds().to_numpy()
+        data['value'].index = unix_times
+        unix_times = np.unique(unix_times)
+
+        self.simulation_data['stations'] = data['meta'].name.to_numpy()
+        self.simulation_data['longitudes'] = data['meta'].longitude.to_numpy()
+        self.simulation_data['latitudes'] = data['meta'].latitude.to_numpy()
+        self.simulation_data['test_times'] = unix_times
+        self.simulation_data['lead_times'] = np.array([0])
+
+        with np.errstate(invalid='ignore'):
+            wrapper = partial(SimulatorSolarSurfrad._align_data, data=data, simulation_data=self.simulation_data,
+                              length=len(self.simulation_data['test_times']))
+
+            surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
+                                  disable=self.disable_progress_bar,
+                                  chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
+
+            self.simulation_data['surfrad'] = {
+                'ghi': np.expand_dims(np.expand_dims(np.stack([v[0] for v in surfrad], axis=1), 0), 0),
+                'uw_solar': np.expand_dims(np.expand_dims(np.stack([v[1] for v in surfrad], axis=1), 0), 0),
+                'alb': np.expand_dims(np.expand_dims(np.stack([v[2] for v in surfrad], axis=1), 0), 0),
+                'wspd': np.expand_dims(np.expand_dims(np.stack([v[3] for v in surfrad], axis=1), 0), 0),
+                'tamb': np.expand_dims(np.expand_dims(np.stack([v[4] for v in surfrad], axis=1), 0), 0),
+            }
+
+        self.timer.stop()
+
+        ##################################
+        # Save converted simulation data #
+        ##################################
+
+        self.timer.start('Save converted simulation data')
+
+        if self.verbose:
+            print('Writing simulation data to NetCDF ...')
+
+        nc = Dataset(self.nc_file, 'w')
+
+        # Create dimensions
+        nc.createDimension('num_stations', len(self.simulation_data['stations']))
+        nc.createDimension('num_test_times', len(self.simulation_data['test_times']))
+        nc.createDimension('num_flts', 1)
+        nc.createDimension('num_analogs', 1)
+
+        # Create variables and copy values
+        array_dims = ('num_analogs', 'num_flts', 'num_test_times', 'num_stations')
+
+        var = nc.createVariable('stations', np.str, ('num_stations'))
+        var[:] = self.simulation_data['stations']
+
+        var = nc.createVariable('longitudes', np.float, ('num_stations'))
+        var[:] = self.simulation_data['longitudes']
+
+        var = nc.createVariable('latitudes', np.float, ('num_stations'))
+        var[:] = self.simulation_data['latitudes']
+
+        var = nc.createVariable('test_times', np.int, ('num_test_times'))
+        var[:] = self.simulation_data['test_times']
+
+        var = nc.createVariable('lead_times', np.int, ('num_flts'))
+        var[:] = self.simulation_data['lead_times']
+
+        write_array_dict(nc, 'surfrad', self.simulation_data['surfrad'], dimensions=array_dims, parallel_nc=False)
+
+        nc.close()
+        self.timer.stop()
+
+    @staticmethod
+    def _align_data(station_index, data, simulation_data, length):
+
+        # Extract data for this station
+        values = data['value'][data['value']._station_ == simulation_data['stations'][station_index]]
+
+        # Figure out what times are available
+        indices = [np.where(simulation_data['test_times'] == index)[0][0] for index in values.index]
+
+        # Preprocessing
+        ghi = values.ghi.to_numpy()
+        uw_solar = values.uw_solar.to_numpy()
+
+        ghi[ghi < 0] = 0
+        mask = (ghi > 0) & (ghi > uw_solar)
+
+        alb = np.zeros(len(ghi))
+        alb[mask] = uw_solar[mask] / ghi[mask]
+
+        ghi_arr = np.full(length, np.nan)
+        uw_solar_arr = np.full(length, np.nan)
+        alb_arr = np.full(length, np.nan)
+        wspd_arr = np.full(length, np.nan)
+        tamb_arr = np.full(length, np.nan)
+
+        ghi_arr[indices] = ghi
+        uw_solar_arr[indices] = uw_solar
+        alb_arr[indices] = alb
+        wspd_arr[indices] = values.wind_speed
+        tamb_arr[indices] = values.temp_air
+
+        return [ghi_arr, uw_solar_arr, alb_arr, wspd_arr, tamb_arr]
 
 
 ###############################
 # Class SimulatorSolarAnalogs #
 ###############################
 
-class SimulatorSolarAnalogs(Simulator):
+class SimulatorSolarAnalogs(SimulatorSolar):
 
     def __init__(self, nc_file, variable_dict, scenarios, solar_position_method='nrel_numpy',
                  parallel_nc=False, stations_index=None, read_sky_conditions=True,
                  cores=1, verbose=True, disable_progress_bar=False):
 
-        super().__init__(scenarios, stations_index, verbose)
-
-        if self.verbose:
+        if verbose:
             print('Initializing PV simulation with Analog Ensemble ...')
 
         # Sanity checks
         assert os.path.isfile(nc_file), '{} does not exist'.format(nc_file)
 
         # Initialization
-        self.cores = cores
-        self.parallel_nc = parallel_nc
         self.variable_dict = variable_dict
-        self.nc_file = os.path.expanduser(nc_file)
-        self.read_sky_conditions = read_sky_conditions
-        self.disable_progress_bar = disable_progress_bar
-        self.solar_position_method = solar_position_method
 
         # Process variable dict
         if isinstance(self.variable_dict, str):
             self.variable_dict = read_yaml(self.variable_dict)
 
-        self.simulation_data = {
-            'longitudes': None,
-            'latitudes': None,
-            'test_times': None,
-            'lead_times': None,
-            'analogs': {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None},
-            'fcsts': {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None},
-            'obs': {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
-        }
+        # Additional data that will be populated during reading
+        self.simulation_data['analogs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
+        self.simulation_data['fcsts'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
+        self.simulation_data['obs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
 
-        # Read data from NetCDF generated from Analog Ensemble
-        self._read_simulation_data()
-
-        # Prepare air mass and extraterrestrial irradiance from solar positions
-        self._prepare_sky_conditions()
+        super().__init__(nc_file, scenarios, solar_position_method, parallel_nc, stations_index,
+                         read_sky_conditions, cores, verbose, disable_progress_bar)
 
     def simulate(self):
 
@@ -127,36 +414,10 @@ class SimulatorSolarAnalogs(Simulator):
                            self.stations_index, self.disable_progress_bar, self.timer)
 
         nc.close()
+        gc.collect()
 
         if self.verbose:
             print("Power simulation is complete!")
-
-    def summary(self):
-        summary_info = '*************** Summary ***************\n' + \
-                       'Overview:\n' + \
-                       '-- {} scenarios\n'.format(self.scenarios.total_scenarios()) + \
-                       '-- {} stations\n'.format(len(self.simulation_data['longitudes'])) + \
-                       '-- {} test times\n'.format(len(self.simulation_data['test_times'])) + \
-                       '-- {} lead times\n'.format(len(self.simulation_data['lead_times'])) + \
-                       '-- {} analog members\n'.format(self.simulation_data['analogs']['ghi'].shape[0]) + \
-                       '-- {} cores\n'.format(self.cores)
-
-        def recursive_summary(d, prefix='--'):
-            msg = ''
-
-            for key, value in d.items():
-                if isinstance(value, dict):
-                    msg += '{} {}:\n'.format(prefix, key)
-                    msg += recursive_summary(value, prefix + ' --')
-                else:
-                    msg += '{} {}: shape {}\n'.format(prefix, key, value.shape)
-
-            return msg
-
-        summary_info += '\nSimulation data summary:\n' + recursive_summary(self.simulation_data)
-        summary_info += '*********** End of Summary ************'
-
-        return summary_info
 
     def _read_simulation_data(self):
 
@@ -323,61 +584,3 @@ class SimulatorSolarAnalogs(Simulator):
 
         self.simulation_data['obs'] = obs_dict
         self.timer.stop()
-
-        gc.collect()
-
-    def _prepare_sky_conditions(self):
-
-        nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
-
-        if 'SkyConditions' in nc.groups and self.read_sky_conditions:
-            self.timer.start('Read sky conditions')
-
-            if self.verbose:
-                print('Reading sky conditions ...')
-
-            sky = read_array_dict(nc, 'SkyConditions', self.parallel_nc, self.stations_index)
-
-            # Sanity check
-            required = ('dni_extra', 'air_mass', 'zenith', 'apparent_zenith', 'azimuth')
-            assert all([k in sky.keys() for k in required]), 'Sky condition missing. Require {}'.format(required)
-
-            expected_dims = (nc.dimensions['num_flts'].size,
-                             nc.dimensions['num_test_times'].size,
-                             len(self.stations_index))
-
-            d_dims = [v.shape for v in sky.values()]
-            assert all([d_dims[0] == dim for dim in d_dims]), 'All arrays should have the same shape in the dictionary'
-            assert d_dims[0] == expected_dims, 'Expect dimensions {} got {}'.format(expected_dims, d_dims[0])
-
-            self.timer.stop()
-
-        else:
-            self.timer.start('Calculate sky conditions')
-
-            if self.verbose:
-                print('Calculating sky conditions ...')
-
-            sky = simulate_sun_positions(
-                days=self.simulation_data['test_times'],
-                lead_times=self.simulation_data['lead_times'],
-                latitudes=self.simulation_data['latitudes'],
-                longitudes=self.simulation_data['longitudes'],
-                solar_position_method=self.solar_position_method,
-                disable_progress_bar=self.disable_progress_bar,
-                cores=self.cores)
-
-            self.timer.stop()
-            self.timer.start('Write sky conditions')
-
-            if self.verbose:
-                print('Writing sky conditions ...')
-
-            write_array_dict(nc, 'SkyConditions', sky, ('num_flts', 'num_test_times', 'num_stations'),
-                             self.parallel_nc, self.stations_index)
-
-            self.timer.stop()
-
-        # Merge results
-        assert all([k not in sky.keys() for k in self.simulation_data.keys()]), 'Duplicate names found during merging'
-        self.simulation_data = {**self.simulation_data, **sky}

@@ -18,9 +18,9 @@
 # The Pennsylvania State University
 ```
 
-This project is designed for assessing prediction uncertainty for renewable energy production. It builds on top of [Analog Ensemble](https://weiming-hu.github.io/AnalogsEnsemble/) and [pvlib](https://pvlib-python.readthedocs.io/en/stable/).
+This project is designed for assessing prediction uncertainty for renewable energy production. It builds on top of [Analog Ensemble](https://weiming-hu.github.io/AnalogsEnsemble/) and [pvlib](https://pvlib-python.readthedocs.io/en/stable/). It currently supports running with data from Analog Ensemble and from SURFRAD.
 
-It is written in Python 3.
+It is implemented in Python 3.
 
 ## Usage
 
@@ -29,7 +29,9 @@ For your reference, [here](https://github.com/Weiming-Hu/RenewableSimulator/issu
 Once you have the environment set up, you can use the following code to see the available options:
 
 ```shell script
-python runner_pv.py -h
+python runner_pv_anen.py -h
+
+python runner_pv_surfrad.py -h
 ```
 
 ## Profiling

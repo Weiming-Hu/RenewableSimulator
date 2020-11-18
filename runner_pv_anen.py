@@ -45,7 +45,7 @@ if __name__ == '__main__':
     profiler_message = "One of [pyinstrument, yappi, line_profiler, memory, simple]"
 
     # Define arguments
-    parser = argparse.ArgumentParser(description=welcome_msg)
+    parser = argparse.ArgumentParser(description=welcome_msg, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('--nc', help=nc_message, required=True)
     parser.add_argument('--map', help=map_message, required=False, default="variable-map.yaml")
     parser.add_argument('--scenario', help=scenario_message, required=False, default="scenarios.yaml")

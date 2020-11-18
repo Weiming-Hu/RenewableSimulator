@@ -13,7 +13,6 @@
 # The Pennsylvania State University
 #
 
-import gc
 import os
 import math
 import yaml
@@ -121,8 +120,6 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
         "apparent_zenith": np.stack([result[3] for result in results], axis=2),
         "azimuth": np.stack([result[4] for result in results], axis=2)
     }
-
-    gc.collect()
 
     return sky_dict
 
@@ -331,9 +328,7 @@ def simulate_power(group_name, scenarios, nc,
             print("Writing scenario {}/{}".format(scenario_index + 1, num_scenarios))
 
         write_array_dict(nc_scenario_group, group_name, results, output_dims, parallel_nc, output_stations_index)
-
         timer.stop()
-        gc.collect()
 
 
 #######################
@@ -448,7 +443,18 @@ def write_array_dict(nc, group_name, d, dimensions, parallel_nc, output_stations
         else:
             var[..., output_stations_index] = v
 
-    gc.collect()
+
+def recursive_summary_dict(d, prefix='--'):
+    msg = ''
+
+    for key, value in d.items():
+        if isinstance(value, dict):
+            msg += '{} {}:\n'.format(prefix, key)
+            msg += recursive_summary_dict(value, prefix + ' --')
+        else:
+            msg += '{} {}: shape {}\n'.format(prefix, key, value.shape)
+
+    return msg
 
 
 def read_array_dict(nc, group_name, parallel_nc, stations_index=None):
@@ -478,8 +484,6 @@ def read_array_dict(nc, group_name, parallel_nc, stations_index=None):
             d[k] = v[:]
         else:
             d[k] = v[..., stations_index]
-
-    gc.collect()
 
     return d
 
