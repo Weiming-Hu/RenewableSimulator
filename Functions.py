@@ -129,6 +129,8 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
     results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
                           chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
 
+    os.remove(tmp_file)
+
     # Initialize output variables
     sky_dict = {
         "dni_extra": np.stack([result[0] for result in results], axis=2),
@@ -341,6 +343,7 @@ def simulate_power(group_name, scenarios, nc,
                           _module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
                           _tcell=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
                               current_scenario["tcell_model_parameters"]])
+        os.remove(tmp_file)
 
         # Simulate with the current scenario
         results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
