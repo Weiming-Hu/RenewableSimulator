@@ -16,16 +16,16 @@
 import os
 import math
 import yaml
+import pickle
+import tempfile
 
 import numpy as np
 import pandas as pd
 
 from netCDF4 import Dataset
-from os import listdir, path
 from functools import partial
-from progress.bar import IncrementalBar
 from tqdm.contrib.concurrent import process_map
-from pvlib import pvsystem, irradiance, iotools, location, atmosphere, temperature
+from pvlib import pvsystem, irradiance, location, atmosphere, temperature
 
 
 ##############
@@ -88,7 +88,7 @@ def simulate_sun_positions_by_station(station_index, days, lead_times, latitudes
 
 def simulate_sun_positions(days, lead_times, latitudes, longitudes,
                            solar_position_method="nrel_numpy",
-                           disable_progress_bar=False, cores=1):
+                           disable_progress_bar=False, cores=1, verbose=True):
     """
     Simulate sun positions
 
@@ -99,16 +99,33 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
     :param solar_position_method: The method to use for calculating solar positions
     :param disable_progress_bar: Whether to hide the progress bar
     :param cores: The number of cores to use
+    :param verbose: Whether to be verbose
     :return: A disctionary with simulated results
     """
     assert (len(latitudes) == len(longitudes)), "Numbers of latitudes and longitudes are not consistent"
 
-    # Create a wrapper function for parallelization
-    wrapper = partial(simulate_sun_positions_by_station,
-                      days=days, lead_times=lead_times, latitudes=latitudes, longitudes=longitudes,
-                      solar_position_method=solar_position_method)
+    # Save the shared data to disk
+    if verbose:
+        print('Preparing data for parallel processing ...')
+
+    tmp_file = save_dict({'days': days, 'lead_times': lead_times, 'latitudes': latitudes, 'longitudes': longitudes})
+
+    if verbose:
+        print('Temporary file saved to {}'.format(tmp_file))
+
+    # Define a simple wrapper
+    def wrapper(station_index, tmp, solar_method):
+        locals().update(read_dict(tmp))
+        return simulate_sun_positions_by_station(
+            station_index, days=days, lead_times=lead_times,
+            latitudes=latitudes, longitudes=longitudes, solar_position_method=solar_method)
+
+    wrapper = partial(wrapper, tmp=tmp_file, solar_method=solar_position_method)
 
     # parallel processing
+    if verbose:
+        print('Calculating sky conditions ...')
+
     results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
                           chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
 
@@ -262,6 +279,15 @@ def simulate_power(group_name, scenarios, nc,
     assert ghi.shape[1:4] == apparent_zenith.shape, "ghi.shape[1:4] != apparent_zenith.shape"
     assert ghi.shape[1:4] == azimuth.shape, "ghi.shape[1:4] != azimuth.shape"
 
+    # Define a simple wrapper for parallel processing
+    def wrapper(station_index, tmp, _tilt, _azimuth, _module, _tcell):
+        locals().update(read_dict(tmp))
+        return simulate_power_by_station(station_index, ghi=ghi, tamb=tamb, wspd=wspd, albedo=alb,
+                                         days=days, lead_times=lead_times, air_mass=air_mass, dni_extra=dni_extra,
+                                         zenith=zenith, apparent_zenith=apparent_zenith, azimuth=azimuth,
+                                         surface_tilt=_tilt, surface_azimuth=_azimuth, pv_module=_module,
+                                         tcell_model_parameters=_tcell)
+
     num_scenarios = scenarios.total_scenarios()
     num_analogs = ghi.shape[0]
     num_stations = ghi.shape[3]
@@ -299,16 +325,22 @@ def simulate_power(group_name, scenarios, nc,
         else:
             output_dims = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
-        # Create a wrapper function
-        wrapper = partial(
-            simulate_power_by_station, ghi=ghi, tamb=tamb, wspd=wspd, albedo=alb,
-            days=days, lead_times=lead_times, air_mass=air_mass, dni_extra=dni_extra,
-            zenith=zenith, apparent_zenith=apparent_zenith, azimuth=azimuth,
-            surface_tilt=current_scenario["surface_tilt"],
-            surface_azimuth=current_scenario["surface_azimuth"],
-            pv_module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
-            tcell_model_parameters=temperature.TEMPERATURE_MODEL_PARAMETERS[
-                "sapm"][current_scenario["tcell_model_parameters"]])
+        if verbose:
+            print('Preparing data for parallel processing ...')
+
+        tmp_file = save_dict({'ghi': ghi, 'tamb': tamb, 'wspd': wspd, 'albedo': alb,
+                              'days': days, 'lead_times': lead_times, 'air_mass': air_mass, 'dni_extra': dni_extra,
+                              'zenith': zenith, 'apparent_zenith': apparent_zenith, 'azimuth': azimuth})
+
+        if verbose:
+            print('Temporary file saved to {}'.format(tmp_file))
+
+        # Create a wrapper function for this iteration
+        wrapper = partial(wrapper, tmp=tmp_file, _tilt=current_scenario["surface_tilt"],
+                          _azimuth=current_scenario["surface_azimuth"],
+                          _module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
+                          _tcell=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
+                              current_scenario["tcell_model_parameters"]])
 
         # Simulate with the current scenario
         results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
@@ -392,6 +424,23 @@ def get_sub_total(total, num_procs, rank):
 ############
 # File I/O #
 ############
+
+def save_dict(d, file=None):
+
+    if file is None:
+        _, file = tempfile.mkstemp(prefix='runner_pv_anen_')
+
+    with open(file, 'wb') as f:
+        pickle.dump(d, f)
+
+    return file
+
+
+def read_dict(file):
+    with open(file, 'rb') as f:
+        d = pickle.load(f)
+    return d
+
 
 def read_yaml(file):
     with open(os.path.expanduser(file)) as f:
@@ -486,58 +535,3 @@ def read_array_dict(nc, group_name, parallel_nc, stations_index=None):
             d[k] = v[..., stations_index]
 
     return d
-
-
-def read_hourly_surfrad(folder, progress=True):
-    """
-    Reads only the hourly data from the daily data files from the input folder. It is assumed that all files in the
-    folder belong to the same location.
-
-    :param folder: A data folder with SURFRAD daily data files
-    :param progress: Whether to show a progress bar
-    :return: Hourly data frame and the meta information
-    """
-
-    # List all data files in the folder
-    folder = path.expanduser(folder)
-    all_files = [path.join(folder, file) for file in listdir(folder)]
-
-    # Initialize variables to hold data
-    df_list = []
-    meta = None
-
-    if progress:
-        print("Reading data from folder {} ...".format(folder))
-
-    # Initialize a progress bar
-    pbar = IncrementalBar("Reading files", max=len(all_files))
-    pbar.suffix = '%(percent).1f%% - %(eta)ds'
-
-    # Read each daily file as a data frame and append it to the data frame list
-    for file in all_files:
-
-        # Read file
-        daily_surfrad = iotools.read_surfrad(file)
-
-        # Parse data
-        records = daily_surfrad[0]
-
-        if meta is None:
-            meta = daily_surfrad[1]
-
-        # Subset only hourly rows
-        records = records[records['minute'] == 0]
-
-        # Append hourly data to the list
-        df_list.append(records)
-
-        if progress:
-            pbar.next()
-
-    if progress:
-        pbar.finish()
-
-    # Row bind all data frames to get the hourly data for the entire year
-    hourly_data = pd.concat(df_list)
-
-    return hourly_data, meta

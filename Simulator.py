@@ -132,9 +132,6 @@ class SimulatorSolar(Simulator):
         else:
             self.timer.start('Calculate sky conditions')
 
-            if self.verbose:
-                print('Calculating sky conditions ...')
-
             sky = simulate_sun_positions(
                 days=self.simulation_data['test_times'],
                 lead_times=self.simulation_data['lead_times'],
@@ -142,7 +139,7 @@ class SimulatorSolar(Simulator):
                 longitudes=self.simulation_data['longitudes'],
                 solar_position_method=self.solar_position_method,
                 disable_progress_bar=self.disable_progress_bar,
-                cores=self.cores)
+                cores=self.cores, verbose=self.verbose)
 
             self.timer.stop()
             self.timer.start('Write sky conditions')
@@ -268,12 +265,29 @@ class SimulatorSolarSurfrad(SimulatorSolar):
         self.simulation_data['lead_times'] = np.array([0])
 
         with np.errstate(invalid='ignore'):
-            wrapper = partial(SimulatorSolarSurfrad._align_data, data=data, simulation_data=self.simulation_data,
-                              length=len(self.simulation_data['test_times']))
+
+            # Save the shared data to disk
+            if self.verbose:
+                print('Preparing data for parallel processing ...')
+
+            tmp_file = save_dict({'data': data, 'simulation_data': self.simulation_data})
+
+            if self.verbose:
+                print('Temporary file saved to {}'.format(tmp_file))
+
+            # Define a simple wrapper
+            def wrapper(station_index, tmp, length):
+                locals().update(read_dict(tmp))
+                return SimulatorSolarSurfrad._align_data(station_index, data, simulation_data, length)
+
+            wrapper = partial(wrapper, tmp=tmp_file, length=len(self.simulation_data['test_times']))
 
             surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
                                   disable=self.disable_progress_bar,
                                   chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
+
+            # Remove the temporary file
+            os.remove(tmp_file)
 
             self.simulation_data['surfrad'] = {
                 'ghi': np.expand_dims(np.expand_dims(np.stack([v[0] for v in surfrad], axis=1), 0), 0),
