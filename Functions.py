@@ -22,6 +22,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 
+from tqdm import tqdm
 from netCDF4 import Dataset
 from functools import partial
 from tqdm.contrib.concurrent import process_map
@@ -112,8 +113,11 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
     if verbose:
         print('Calculating sky conditions ...')
 
-    results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
-                          chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
+    if cores == 1:
+        results = map(wrapper, tqdm(range(len(latitudes)), disable=disable_progress_bar))
+    else:
+        results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
+                              chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
 
     # Initialize output variables
     sky_dict = {
@@ -148,8 +152,8 @@ def simulate_power_by_station(
     :param azimuth: See `simulate_power`
     :param surface_tilt: See `simulate_power`
     :param surface_azimuth: See `simulate_power`
-    :param pv_module: A PV module
-    :param tcell_model_parameters: A set of parameters for temperature configuration
+    :param pv_module: A PV module name
+    :param tcell_model_parameters: A cell module name
     :return: A list with power, cell temperature, and the effective irradiance
     """
 
@@ -165,6 +169,8 @@ def simulate_power_by_station(
     p_mp = np.zeros((num_analogs, num_lead_times, num_days))
     tcell = np.zeros((num_analogs, num_lead_times, num_days))
     effective_irradiance = np.zeros((num_analogs, num_lead_times, num_days))
+    pv_module = pvsystem.retrieve_sam("SandiaMod")[pv_module]
+    tcell_model_parameters = temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][tcell_model_parameters]
 
     for day_index in range(num_days):
         for lead_time_index in range(num_lead_times):
@@ -304,17 +310,19 @@ def simulate_power(group_name, scenarios, nc,
 
         # Create a wrapper function for this iteration
         wrapper = partial(simulate_power_by_station,
-                          surface_tile=current_scenario["surface_tilt"],
+                          surface_tilt=current_scenario["surface_tilt"],
                           surface_azimuth=current_scenario["surface_azimuth"],
-                          pv_module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
-                          tcell_model_parameters=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
-                              current_scenario["tcell_model_parameters"]],
-                          ghi=ghi, tamb=tamb, wspd=wspd, alb=alb, days=days, lead_times=lead_times, air_mass=air_mass,
+                          pv_module=current_scenario["pv_module"],
+                          tcell_model_parameters=current_scenario["tcell_model_parameters"],
+                          ghi=ghi, tamb=tamb, wspd=wspd, albedo=alb, days=days, lead_times=lead_times, air_mass=air_mass,
                           dni_extra=dni_extra, zenith=zenith, apparent_zenith=apparent_zenith, azimuth=azimuth)
 
         # Simulate with the current scenario
-        results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
-                              chunksize=1 if num_stations < 1000 else int(num_stations / 100))
+        if cores == 1:
+            results = map(wrapper, tqdm(range(num_stations), disable=disable_progress_bar))
+        else:
+            results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
+                                  chunksize=1 if num_stations < 1000 else int(num_stations / 100))
 
         results = {
             "power": np.stack([result[0] for result in results], axis=3),

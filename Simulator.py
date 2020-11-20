@@ -216,9 +216,12 @@ class SimulatorSolarSurfrad(SimulatorSolar):
         if self.verbose:
             print('Reading {} SURFRAD files ...'.format(len(self.data_files)))
 
-        data = process_map(iotools.read_surfrad, self.data_files, max_workers=self.cores,
-                           disable=self.disable_progress_bar,
-                           chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
+        if self.cores == 1:
+            data = map(iotools.read_surfrad, self.data_files)
+        else:
+            data = process_map(iotools.read_surfrad, self.data_files, max_workers=self.cores,
+                               disable=self.disable_progress_bar,
+                               chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
 
         self.timer.stop()
 
@@ -271,9 +274,13 @@ class SimulatorSolarSurfrad(SimulatorSolar):
                               simulation_data=self.simulation_data,
                               length=len(self.simulation_data['test_times']))
 
-            surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
-                                  disable=self.disable_progress_bar,
-                                  chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
+            if self.cores == 1:
+                surfrad = map(wrapper, tqdm(range(len(self.simulation_data['stations'])),
+                                            disable=self.disable_progress_bar))
+            else:
+                surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
+                                      disable=self.disable_progress_bar,
+                                      chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
 
             self.simulation_data['surfrad'] = {
                 'ghi': np.expand_dims(np.expand_dims(np.stack([v[0] for v in surfrad], axis=1), 0), 0),

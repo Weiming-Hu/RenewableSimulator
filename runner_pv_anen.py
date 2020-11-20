@@ -111,6 +111,12 @@ if __name__ == '__main__':
     end = get_end_index(num_stations, mpi_size, mpi_rank)
 
     if mpi_size > 1 and args.verbose:
+        if args.cores != 1:
+            args.cores = 1
+
+            if mpi_rank == 0:
+                print('Multiprocessing is disabled when MPI is used! The number of cores has been set to 1')
+
         if mpi_rank == 0:
             print('{} workers (processes) have been initialized.'.format(mpi_size))
 
