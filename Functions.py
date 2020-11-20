@@ -32,7 +32,9 @@ from pvlib import pvsystem, irradiance, location, atmosphere, temperature
 # Simulation #
 ##############
 
-def simulate_sun_positions_by_station(station_index, days, lead_times, latitudes, longitudes, solar_position_method):
+def simulate_sun_positions_by_station(
+        station_index, solar_position_method,
+        days=None, lead_times=None, latitudes=None, longitudes=None, tmp_file=None):
     """
     This is the worker function of calculating sun positions at a specified station index. This function should
     be called from the parallel version of this function, `simulate_sun_positions`.
@@ -46,8 +48,16 @@ def simulate_sun_positions_by_station(station_index, days, lead_times, latitudes
     :param latitudes: See `simulate_sun_positions`
     :param longitudes: See `simulate_sun_positions`
     :param solar_position_method: See `simulate_sun_positions`
-    :return:
+    :param tmp_file: A temporary file with variables for `days`, `lead_times`, `latitudes`, and `longitudes`
+    :return: A list with DNI, air mass, zenith, apparent zenith, and azimuth.
     """
+
+    if tmp_file is not None:
+        disk_data = read_dict(tmp_file)
+        days = disk_data['days']
+        lead_times = disk_data['lead_times']
+        latitudes = disk_data['latitudes']
+        longitudes = disk_data['longitudes']
 
     # Initialization
     num_lead_times, num_days = len(lead_times), len(days)
@@ -114,13 +124,7 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
         print('Temporary file saved to {}'.format(tmp_file))
 
     # Define a simple wrapper
-    def wrapper(station_index, tmp, solar_method):
-        locals().update(read_dict(tmp))
-        return simulate_sun_positions_by_station(
-            station_index, days=days, lead_times=lead_times,
-            latitudes=latitudes, longitudes=longitudes, solar_position_method=solar_method)
-
-    wrapper = partial(wrapper, tmp=tmp_file, solar_method=solar_position_method)
+    wrapper = partial(simulate_power_by_station, tmp_file=tmp_file, solar_position_method=solar_position_method)
 
     # parallel processing
     if verbose:
@@ -128,6 +132,11 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
 
     results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
                           chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
+
+    if verbose:
+        print('Removing temporary data file {}'.format(tmp_file))
+
+    os.remove(tmp_file)
 
     # Initialize output variables
     sky_dict = {
@@ -141,9 +150,10 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
     return sky_dict
 
 
-def simulate_power_by_station(station_index, ghi, tamb, wspd, albedo, days, lead_times,
-                              air_mass, dni_extra, zenith, apparent_zenith, azimuth,
-                              surface_tilt, surface_azimuth, pv_module, tcell_model_parameters):
+def simulate_power_by_station(
+        station_index, surface_tilt, surface_azimuth, pv_module, tcell_model_parameters,
+        ghi=None, tamb=None, wspd=None, albedo=None, days=None, lead_times=None, air_mass=None,
+        dni_extra=None, zenith=None, apparent_zenith=None, azimuth=None, tmp_file=None):
     """
     This is the worker function for simulating power at a specified location. This function should be used inside
     of `simulate_power` and direct usage is discouraged.
@@ -164,8 +174,24 @@ def simulate_power_by_station(station_index, ghi, tamb, wspd, albedo, days, lead
     :param surface_azimuth: See `simulate_power`
     :param pv_module: A PV module
     :param tcell_model_parameters: A set of parameters for temperature configuration
-    :return:
+    :param tmp_file: A temporary file with variables for `ghi`, `tamb`, `wspd`, `albedo`, `days`, `lead_times`,
+    `air_mass`, `dni_extra`, zenith`, `apparent_zenith`, `azimuth`
+    :return: A list with power, cell temperature, and the effective irradiance
     """
+
+    if tmp_file is not None:
+        disk_data = read_dict(tmp_file)
+        ghi = disk_data['ghi']
+        tamb = disk_data['tamb']
+        wspd = disk_data['wspd']
+        albedo = disk_data['albedo']
+        days = disk_data['days']
+        lead_times = disk_data['lead_times']
+        air_mass = disk_data['air_mass']
+        dni_extra = disk_data['dni_extra']
+        zenith = disk_data['zenith']
+        apparent_zenith = disk_data['apparent_zenith']
+        azimuth = disk_data['azimuth']
 
     # Sanity check
     assert 0 <= station_index < ghi.shape[3], 'Invalid station index'
@@ -279,18 +305,19 @@ def simulate_power(group_name, scenarios, nc,
     assert ghi.shape[1:4] == apparent_zenith.shape, "ghi.shape[1:4] != apparent_zenith.shape"
     assert ghi.shape[1:4] == azimuth.shape, "ghi.shape[1:4] != azimuth.shape"
 
-    # Define a simple wrapper for parallel processing
-    def wrapper(station_index, tmp, _tilt, _azimuth, _module, _tcell):
-        locals().update(read_dict(tmp))
-        return simulate_power_by_station(station_index, ghi=ghi, tamb=tamb, wspd=wspd, albedo=alb,
-                                         days=days, lead_times=lead_times, air_mass=air_mass, dni_extra=dni_extra,
-                                         zenith=zenith, apparent_zenith=apparent_zenith, azimuth=azimuth,
-                                         surface_tilt=_tilt, surface_azimuth=_azimuth, pv_module=_module,
-                                         tcell_model_parameters=_tcell)
-
     num_scenarios = scenarios.total_scenarios()
     num_analogs = ghi.shape[0]
     num_stations = ghi.shape[3]
+
+    if verbose:
+        print('Preparing data for parallel processing ...')
+
+    tmp_file = save_dict({'ghi': ghi, 'tamb': tamb, 'wspd': wspd, 'albedo': alb,
+                          'days': days, 'lead_times': lead_times, 'air_mass': air_mass, 'dni_extra': dni_extra,
+                          'zenith': zenith, 'apparent_zenith': apparent_zenith, 'azimuth': azimuth})
+
+    if verbose:
+        print('Temporary file saved to {}'.format(tmp_file))
 
     if output_stations_index is None:
         output_stations_index = list(range(num_stations))
@@ -325,22 +352,12 @@ def simulate_power(group_name, scenarios, nc,
         else:
             output_dims = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
-        if verbose:
-            print('Preparing data for parallel processing ...')
-
-        tmp_file = save_dict({'ghi': ghi, 'tamb': tamb, 'wspd': wspd, 'albedo': alb,
-                              'days': days, 'lead_times': lead_times, 'air_mass': air_mass, 'dni_extra': dni_extra,
-                              'zenith': zenith, 'apparent_zenith': apparent_zenith, 'azimuth': azimuth})
-
-        if verbose:
-            print('Temporary file saved to {}'.format(tmp_file))
-
         # Create a wrapper function for this iteration
-        wrapper = partial(wrapper, tmp=tmp_file, _tilt=current_scenario["surface_tilt"],
-                          _azimuth=current_scenario["surface_azimuth"],
-                          _module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
-                          _tcell=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
-                              current_scenario["tcell_model_parameters"]])
+        wrapper = partial(simulate_power_by_station, surface_tilt=current_scenario["surface_tilt"],
+                          surface_azimuth=current_scenario["surface_azimuth"],
+                          pv_module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
+                          tcell_model_parameters=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
+                              current_scenario["tcell_model_parameters"]], tmp_file=tmp_file)
 
         # Simulate with the current scenario
         results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
@@ -361,6 +378,11 @@ def simulate_power(group_name, scenarios, nc,
 
         write_array_dict(nc_scenario_group, group_name, results, output_dims, parallel_nc, output_stations_index)
         timer.stop()
+
+    if verbose:
+        print('Removing temporary data file {}'.format(tmp_file))
+
+    os.remove(tmp_file)
 
 
 #######################
