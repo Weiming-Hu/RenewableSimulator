@@ -151,7 +151,7 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
 
 
 def simulate_power_by_station(
-        station_index, surface_tilt, surface_azimuth, pv_module, tcell_model_parameters,
+        station_index, surface_tilt=None, surface_azimuth=None, pv_module=None, tcell_model_parameters=None,
         ghi=None, tamb=None, wspd=None, albedo=None, days=None, lead_times=None, air_mass=None,
         dni_extra=None, zenith=None, apparent_zenith=None, azimuth=None, tmp_file=None):
     """
@@ -175,7 +175,8 @@ def simulate_power_by_station(
     :param pv_module: A PV module
     :param tcell_model_parameters: A set of parameters for temperature configuration
     :param tmp_file: A temporary file with variables for `ghi`, `tamb`, `wspd`, `albedo`, `days`, `lead_times`,
-    `air_mass`, `dni_extra`, zenith`, `apparent_zenith`, `azimuth`
+    `air_mass`, `dni_extra`, zenith`, `apparent_zenith`, `azimuth`, `surface_tilt`, `surface_azimuth`,
+    `pv_module`, `tcell_module_parameters`
     :return: A list with power, cell temperature, and the effective irradiance
     """
 
@@ -192,6 +193,10 @@ def simulate_power_by_station(
         zenith = disk_data['zenith']
         apparent_zenith = disk_data['apparent_zenith']
         azimuth = disk_data['azimuth']
+        surface_tilt = disk_data["surface_tilt"]
+        surface_azimuth = disk_data["surface_azimuth"]
+        pv_module = disk_data['pv_module']
+        tcell_model_parameters = disk_data['tcell_model_parameters']
 
     # Sanity check
     assert 0 <= station_index < ghi.shape[3], 'Invalid station index'
@@ -309,15 +314,9 @@ def simulate_power(group_name, scenarios, nc,
     num_analogs = ghi.shape[0]
     num_stations = ghi.shape[3]
 
-    if verbose:
-        print('Preparing data for parallel processing ...')
-
-    tmp_file = save_dict({'ghi': ghi, 'tamb': tamb, 'wspd': wspd, 'albedo': alb,
-                          'days': days, 'lead_times': lead_times, 'air_mass': air_mass, 'dni_extra': dni_extra,
-                          'zenith': zenith, 'apparent_zenith': apparent_zenith, 'azimuth': azimuth})
-
-    if verbose:
-        print('Temporary file saved to {}'.format(tmp_file))
+    tmp_dict = {'ghi': ghi, 'tamb': tamb, 'wspd': wspd, 'albedo': alb,
+                'days': days, 'lead_times': lead_times, 'air_mass': air_mass, 'dni_extra': dni_extra,
+                'zenith': zenith, 'apparent_zenith': apparent_zenith, 'azimuth': azimuth}
 
     if output_stations_index is None:
         output_stations_index = list(range(num_stations))
@@ -334,6 +333,20 @@ def simulate_power(group_name, scenarios, nc,
 
         # Extract current scenario
         current_scenario = scenarios.get_scenario(scenario_index)
+
+        if verbose:
+            print('Preparing data for parallel processing ...')
+    
+        tmp_dict['surface_tile'] = current_scenario["surface_tilt"],
+        tmp_dict['surface_azimuth'] = current_scenario["surface_azimuth"],
+        tmp_dict['pv_module'] = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
+        tmp_dict['tcell_model_parameters'] = temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
+                                             current_scenario["tcell_model_parameters"]]
+    
+        tmp_file = save_dict(tmp_dict)
+    
+        if verbose:
+            print('Temporary file saved to {}'.format(tmp_file))
 
         # Create a group for the current scenario
         nc_scenario_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
@@ -353,16 +366,16 @@ def simulate_power(group_name, scenarios, nc,
             output_dims = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
         # Create a wrapper function for this iteration
-        wrapper = partial(simulate_power_by_station, surface_tilt=current_scenario["surface_tilt"],
-                          surface_azimuth=current_scenario["surface_azimuth"],
-                          pv_module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
-                          tcell_model_parameters=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
-                              current_scenario["tcell_model_parameters"]], tmp_file=tmp_file)
+        wrapper = partial(simulate_power_by_station, tmp_file=tmp_file)
 
         # Simulate with the current scenario
         results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
                               chunksize=1 if num_stations < 1000 else int(num_stations / 100))
-
+        if verbose:
+            print('Removing temporary data file {}'.format(tmp_file))
+    
+        os.remove(tmp_file)
+    
         results = {
             "power": np.stack([result[0] for result in results], axis=3),
             "tcell": np.stack([result[1] for result in results], axis=3),
@@ -379,10 +392,6 @@ def simulate_power(group_name, scenarios, nc,
         write_array_dict(nc_scenario_group, group_name, results, output_dims, parallel_nc, output_stations_index)
         timer.stop()
 
-    if verbose:
-        print('Removing temporary data file {}'.format(tmp_file))
-
-    os.remove(tmp_file)
 
 
 #######################
