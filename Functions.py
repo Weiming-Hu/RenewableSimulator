@@ -284,7 +284,7 @@ def simulate_power(group_name, scenarios, nc,
 
     for scenario_index in range(num_scenarios):
 
-        timer.start('Simulate scenario {:05d}'.format(scenario_index))
+        timer.start('Simulate scenario {:05d} for {}'.format(scenario_index, group_name))
 
         if verbose:
             print("Simulating scenario {}/{} with sub-group name '{}'".format(
