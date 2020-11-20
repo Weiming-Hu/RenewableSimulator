@@ -382,13 +382,13 @@ class SimulatorSolarAnalogs(SimulatorSolar):
         if isinstance(self.variable_dict, str):
             self.variable_dict = read_yaml(self.variable_dict)
 
+        super().__init__(nc_file, scenarios, solar_position_method, parallel_nc, stations_index,
+                         read_sky_conditions, cores, verbose, disable_progress_bar)
+
         # Additional data that will be populated during reading
         self.simulation_data['analogs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
         self.simulation_data['fcsts'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
         self.simulation_data['obs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
-
-        super().__init__(nc_file, scenarios, solar_position_method, parallel_nc, stations_index,
-                         read_sky_conditions, cores, verbose, disable_progress_bar)
 
     def simulate(self):
 
