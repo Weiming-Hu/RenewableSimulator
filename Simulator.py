@@ -217,7 +217,9 @@ class SimulatorSolarSurfrad(SimulatorSolar):
             print('Reading {} SURFRAD files ...'.format(len(self.data_files)))
 
         if self.cores == 1:
-            data = map(iotools.read_surfrad, self.data_files)
+            data = [None] * len(self.data_files)
+            for data_file in tqdm(self.data_files, disable=disable_progress_bar):
+                data[station_index] = iotools.read_surfrad(data_file)
         else:
             data = process_map(iotools.read_surfrad, self.data_files, max_workers=self.cores,
                                disable=self.disable_progress_bar,
@@ -275,8 +277,9 @@ class SimulatorSolarSurfrad(SimulatorSolar):
                               length=len(self.simulation_data['test_times']))
 
             if self.cores == 1:
-                surfrad = map(wrapper, tqdm(range(len(self.simulation_data['stations'])),
-                                            disable=self.disable_progress_bar))
+                surfrad = [None] * len(self.simulation_data['stations'])
+                for station_index in tqdm(range(len(self.simulation_data['stations'])), disable=disable_progress_bar):
+                    surfrad[station_index] = wrapper(station_index)
             else:
                 surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
                                       disable=self.disable_progress_bar,

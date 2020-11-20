@@ -114,7 +114,9 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
         print('Calculating sky conditions ...')
 
     if cores == 1:
-        results = map(wrapper, tqdm(range(len(latitudes)), disable=disable_progress_bar))
+        results = [None] * len(latitudes)
+        for station_index in tqdm(range(len(latitudes)), disable=disable_progress_bar):
+            results[station_index] = wrapper(station_index)
     else:
         results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
                               chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
@@ -319,7 +321,9 @@ def simulate_power(group_name, scenarios, nc,
 
         # Simulate with the current scenario
         if cores == 1:
-            results = map(wrapper, tqdm(range(num_stations), disable=disable_progress_bar))
+            results = [None] * num_stations
+            for station_index in tqdm(range(num_stations), disable=disable_progress_bar):
+                results[station_index] = wrapper(station_index)
         else:
             results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
                                   chunksize=1 if num_stations < 1000 else int(num_stations / 100))
