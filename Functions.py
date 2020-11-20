@@ -124,7 +124,7 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
         print('Temporary file saved to {}'.format(tmp_file))
 
     # Define a simple wrapper
-    wrapper = partial(simulate_power_by_station, tmp_file=tmp_file, solar_position_method=solar_position_method)
+    wrapper = partial(simulate_sun_positions_by_station, tmp_file=tmp_file, solar_position_method=solar_position_method)
 
     # parallel processing
     if verbose:
@@ -449,8 +449,13 @@ def get_sub_total(total, num_procs, rank):
 
 def save_dict(d, file=None):
 
+    if 'TMPDIR' in os.environ.keys():
+        out_dir = os.environ['TMPDIR']
+    else:
+        out_dir = None
+
     if file is None:
-        _, file = tempfile.mkstemp(prefix='runner_pv_anen_')
+        _, file = tempfile.mkstemp(prefix='runner_pv_anen_', dir=out_dir)
 
     with open(file, 'wb') as f:
         pickle.dump(d, f)
