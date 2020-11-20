@@ -32,9 +32,7 @@ from pvlib import pvsystem, irradiance, location, atmosphere, temperature
 # Simulation #
 ##############
 
-def simulate_sun_positions_by_station(
-        station_index, solar_position_method,
-        days=None, lead_times=None, latitudes=None, longitudes=None, tmp_file=None):
+def simulate_sun_positions_by_station(station_index, solar_position_method, days, lead_times, latitudes, longitudes):
     """
     This is the worker function of calculating sun positions at a specified station index. This function should
     be called from the parallel version of this function, `simulate_sun_positions`.
@@ -48,16 +46,8 @@ def simulate_sun_positions_by_station(
     :param latitudes: See `simulate_sun_positions`
     :param longitudes: See `simulate_sun_positions`
     :param solar_position_method: See `simulate_sun_positions`
-    :param tmp_file: A temporary file with variables for `days`, `lead_times`, `latitudes`, and `longitudes`
     :return: A list with DNI, air mass, zenith, apparent zenith, and azimuth.
     """
-
-    if tmp_file is not None:
-        disk_data = read_dict(tmp_file)
-        days = disk_data['days']
-        lead_times = disk_data['lead_times']
-        latitudes = disk_data['latitudes']
-        longitudes = disk_data['longitudes']
 
     # Initialization
     num_lead_times, num_days = len(lead_times), len(days)
@@ -114,17 +104,9 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
     """
     assert (len(latitudes) == len(longitudes)), "Numbers of latitudes and longitudes are not consistent"
 
-    # Save the shared data to disk
-    if verbose:
-        print('Preparing data for parallel processing ...')
-
-    tmp_file = save_dict({'days': days, 'lead_times': lead_times, 'latitudes': latitudes, 'longitudes': longitudes})
-
-    if verbose:
-        print('Temporary file saved to {}'.format(tmp_file))
-
     # Define a simple wrapper
-    wrapper = partial(simulate_sun_positions_by_station, tmp_file=tmp_file, solar_position_method=solar_position_method)
+    wrapper = partial(simulate_sun_positions_by_station, days=days, lead_times=lead_times,
+                      latitudes=latitudes, longitudes=longitudes, solar_position_method=solar_position_method)
 
     # parallel processing
     if verbose:
@@ -132,11 +114,6 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
 
     results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
                           chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
-
-    if verbose:
-        print('Removing temporary data file {}'.format(tmp_file))
-
-    os.remove(tmp_file)
 
     # Initialize output variables
     sky_dict = {
@@ -151,9 +128,8 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
 
 
 def simulate_power_by_station(
-        station_index, surface_tilt=None, surface_azimuth=None, pv_module=None, tcell_model_parameters=None,
-        ghi=None, tamb=None, wspd=None, albedo=None, days=None, lead_times=None, air_mass=None,
-        dni_extra=None, zenith=None, apparent_zenith=None, azimuth=None, tmp_file=None):
+        station_index, surface_tilt, surface_azimuth, pv_module, tcell_model_parameters,
+        ghi, tamb, wspd, albedo, days, lead_times, air_mass, dni_extra, zenith, apparent_zenith, azimuth):
     """
     This is the worker function for simulating power at a specified location. This function should be used inside
     of `simulate_power` and direct usage is discouraged.
@@ -174,29 +150,8 @@ def simulate_power_by_station(
     :param surface_azimuth: See `simulate_power`
     :param pv_module: A PV module
     :param tcell_model_parameters: A set of parameters for temperature configuration
-    :param tmp_file: A temporary file with variables for `ghi`, `tamb`, `wspd`, `albedo`, `days`, `lead_times`,
-    `air_mass`, `dni_extra`, zenith`, `apparent_zenith`, `azimuth`, `surface_tilt`, `surface_azimuth`,
-    `pv_module`, `tcell_module_parameters`
     :return: A list with power, cell temperature, and the effective irradiance
     """
-
-    if tmp_file is not None:
-        disk_data = read_dict(tmp_file)
-        ghi = disk_data['ghi']
-        tamb = disk_data['tamb']
-        wspd = disk_data['wspd']
-        albedo = disk_data['albedo']
-        days = disk_data['days']
-        lead_times = disk_data['lead_times']
-        air_mass = disk_data['air_mass']
-        dni_extra = disk_data['dni_extra']
-        zenith = disk_data['zenith']
-        apparent_zenith = disk_data['apparent_zenith']
-        azimuth = disk_data['azimuth']
-        surface_tilt = disk_data["surface_tilt"]
-        surface_azimuth = disk_data["surface_azimuth"]
-        pv_module = disk_data['pv_module']
-        tcell_model_parameters = disk_data['tcell_model_parameters']
 
     # Sanity check
     assert 0 <= station_index < ghi.shape[3], 'Invalid station index'
@@ -314,10 +269,6 @@ def simulate_power(group_name, scenarios, nc,
     num_analogs = ghi.shape[0]
     num_stations = ghi.shape[3]
 
-    tmp_dict = {'ghi': ghi, 'tamb': tamb, 'wspd': wspd, 'albedo': alb,
-                'days': days, 'lead_times': lead_times, 'air_mass': air_mass, 'dni_extra': dni_extra,
-                'zenith': zenith, 'apparent_zenith': apparent_zenith, 'azimuth': azimuth}
-
     if output_stations_index is None:
         output_stations_index = list(range(num_stations))
         assert len(output_stations_index) == nc.dimensions['num_stations'].size, \
@@ -333,20 +284,6 @@ def simulate_power(group_name, scenarios, nc,
 
         # Extract current scenario
         current_scenario = scenarios.get_scenario(scenario_index)
-
-        if verbose:
-            print('Preparing data for parallel processing ...')
-    
-        tmp_dict['surface_tile'] = current_scenario["surface_tilt"],
-        tmp_dict['surface_azimuth'] = current_scenario["surface_azimuth"],
-        tmp_dict['pv_module'] = pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]]
-        tmp_dict['tcell_model_parameters'] = temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
-                                             current_scenario["tcell_model_parameters"]]
-    
-        tmp_file = save_dict(tmp_dict)
-    
-        if verbose:
-            print('Temporary file saved to {}'.format(tmp_file))
 
         # Create a group for the current scenario
         nc_scenario_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
@@ -366,16 +303,19 @@ def simulate_power(group_name, scenarios, nc,
             output_dims = ("num_analogs", "num_flts", "num_test_times", "num_stations")
 
         # Create a wrapper function for this iteration
-        wrapper = partial(simulate_power_by_station, tmp_file=tmp_file)
+        wrapper = partial(simulate_power_by_station,
+                          surface_tile=current_scenario["surface_tilt"],
+                          surface_azimuth=current_scenario["surface_azimuth"],
+                          pv_module=pvsystem.retrieve_sam("SandiaMod")[current_scenario["pv_module"]],
+                          tcell_model_parameters=temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
+                              current_scenario["tcell_model_parameters"]],
+                          ghi=ghi, tamb=tamb, wspd=wspd, alb=alb, days=days, lead_times=lead_times, air_mass=air_mass,
+                          dni_extra=dni_extra, zenith=zenith, apparent_zenith=apparent_zenith, azimuth=azimuth)
 
         # Simulate with the current scenario
         results = process_map(wrapper, range(num_stations), max_workers=cores, disable=disable_progress_bar,
                               chunksize=1 if num_stations < 1000 else int(num_stations / 100))
-        if verbose:
-            print('Removing temporary data file {}'.format(tmp_file))
-    
-        os.remove(tmp_file)
-    
+
         results = {
             "power": np.stack([result[0] for result in results], axis=3),
             "tcell": np.stack([result[1] for result in results], axis=3),
@@ -455,28 +395,6 @@ def get_sub_total(total, num_procs, rank):
 ############
 # File I/O #
 ############
-
-def save_dict(d, file=None):
-
-    if 'TMPDIR' in os.environ.keys():
-        out_dir = os.environ['TMPDIR']
-    else:
-        out_dir = None
-
-    if file is None:
-        _, file = tempfile.mkstemp(prefix='runner_pv_anen_', dir=out_dir)
-
-    with open(file, 'wb') as f:
-        pickle.dump(d, f)
-
-    return file
-
-
-def read_dict(file):
-    with open(file, 'rb') as f:
-        d = pickle.load(f)
-    return d
-
 
 def read_yaml(file):
     with open(os.path.expanduser(file)) as f:

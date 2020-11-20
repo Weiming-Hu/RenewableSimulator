@@ -266,28 +266,14 @@ class SimulatorSolarSurfrad(SimulatorSolar):
 
         with np.errstate(invalid='ignore'):
 
-            # Save the shared data to disk
-            if self.verbose:
-                print('Preparing data for parallel processing ...')
-
-            tmp_file = save_dict({'data': data, 'simulation_data': self.simulation_data,
-                                  'length': len(self.simulation_data['test_times'])})
-
-            if self.verbose:
-                print('Temporary file saved to {}'.format(tmp_file))
-
             # Define a simple wrapper
-            wrapper = partial(SimulatorSolarSurfrad._align_data, tmp=tmp_file)
+            wrapper = partial(SimulatorSolarSurfrad._align_data, data=data,
+                              simulation_data=self.simulation_data,
+                              length=len(self.simulation_data['test_times']))
 
             surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
                                   disable=self.disable_progress_bar,
                                   chunksize=1 if len(self.data_files) < 1000 else int(len(self.data_files) / 100))
-
-            # Remove the temporary file
-            if self.verbose:
-                print('Removing temporary data file {}'.format(tmp_file))
-
-            os.remove(tmp_file)
 
             self.simulation_data['surfrad'] = {
                 'ghi': np.expand_dims(np.expand_dims(np.stack([v[0] for v in surfrad], axis=1), 0), 0),
@@ -340,13 +326,7 @@ class SimulatorSolarSurfrad(SimulatorSolar):
         self.timer.stop()
 
     @staticmethod
-    def _align_data(station_index, data=None, simulation_data=None, length=None, tmp_file=None):
-
-        if tmp_file is not None:
-            disk_data = read_dict(tmp_file)
-            data = disk_data['data']
-            simulation_data = disk_data['simulation_data']
-            length = disk_data['length']
+    def _align_data(station_index, data, simulation_data, length):
 
         # Extract data for this station
         values = data['value'][data['value']._station_ == simulation_data['stations'][station_index]]
