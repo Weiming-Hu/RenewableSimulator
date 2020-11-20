@@ -385,11 +385,6 @@ class SimulatorSolarAnalogs(SimulatorSolar):
         super().__init__(nc_file, scenarios, solar_position_method, parallel_nc, stations_index,
                          read_sky_conditions, cores, verbose, disable_progress_bar)
 
-        # Additional data that will be populated during reading
-        self.simulation_data['analogs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
-        self.simulation_data['fcsts'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
-        self.simulation_data['obs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
-
     def simulate(self):
 
         # Sanity check
@@ -420,6 +415,11 @@ class SimulatorSolarAnalogs(SimulatorSolar):
             print("Power simulation is complete!")
 
     def _read_simulation_data(self):
+
+        # Additional data that will be populated during reading
+        self.simulation_data['analogs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
+        self.simulation_data['fcsts'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
+        self.simulation_data['obs'] = {'ghi': None, 'alb': None, 'wspd': None, 'tamb': None}
 
         # Open connection
         self.timer.start('Open a read connection')
