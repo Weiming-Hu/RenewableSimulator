@@ -110,7 +110,7 @@ def simulate_sun_positions(days, lead_times, latitudes, longitudes,
 
     # parallel processing
     results = process_map(wrapper, range(len(latitudes)), max_workers=cores, disable=disable_progress_bar,
-                              chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
+                          chunksize=1 if len(latitudes) < 1000 else int(len(latitudes) / 100))
 
     # Initialize output variables
     sky_dict = {
@@ -276,7 +276,7 @@ def simulate_power(group_name, scenarios, nc,
         timer.start('Simulate scenario {:05d}'.format(scenario_index))
 
         if verbose:
-            print("Simulating scenario {}/{} with sub-group name {}".format(
+            print("Simulating scenario {}/{} with sub-group name '{}'".format(
                 scenario_index + 1, num_scenarios, group_name))
 
         # Extract current scenario
