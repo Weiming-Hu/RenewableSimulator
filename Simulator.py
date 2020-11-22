@@ -477,11 +477,13 @@ class SimulatorSolarAnalogs(SimulatorSolar):
         if self.verbose:
             print('Reading forecasts and observations ...')
 
-        for type_key in ['fcsts', 'obs']:
+        for group_name, type_key in {'Forecasts': 'fcsts', 'AlignedObservations': 'obs'}.items():
 
             # Determine the group and variables
-            nc_group = nc.groups['Forecasts' if type_key == 'fcsts' else 'Observations']
+            nc_group = nc.groups[group_name]
             nc_data = nc_group.variables['Data']
+            num_dimensions = len(nc_data.shape)
+
             nc_parameters = nc_group.variables['ParameterNames']
 
             if self.parallel_nc:
@@ -494,14 +496,14 @@ class SimulatorSolarAnalogs(SimulatorSolar):
                 value_index = np.where(nc_parameters == self.variable_dict['{}_{}'.format(value_key, type_key)])[0]
                 assert len(value_index) == 1, 'Failed to find index for {} in for key {}'.format(value_key, type_key)
 
-                if type_key == 'fcsts':
+                if num_dimensions == 4:
                     # Dimensions are [lead times, test times, stations, 1 (variable)]
                     value = nc_data[:, :, self.stations_index, value_index]
 
                     # Transpose dimensions to be [1 (member), lead times, test times, stations]
                     self.simulation_data[type_key][value_key] = np.transpose(value, (3, 0, 1, 2))
 
-                else:
+                elif num_dimensions == 3:
                     # Dimensions are [test times, stations, 1 (variable)]
                     value = nc_data[:, self.stations_index, value_index]
 
@@ -510,6 +512,8 @@ class SimulatorSolarAnalogs(SimulatorSolar):
 
                     # Expand a dimension to be [1 (member), 1 (lead time) , test times, stations]
                     self.simulation_data[type_key][value_key] = np.expand_dims(value, axis=1)
+                else:
+                    raise Exception('Wrong number of dimensions')
 
         self.timer.stop()
 
@@ -554,43 +558,46 @@ class SimulatorSolarAnalogs(SimulatorSolar):
             # Temperature from Kelvin to Celsius
             self.simulation_data[type_key]['tamb'] -= 273.15
 
-        # Initialize dimensions
-        if self.verbose:
-            print('Aligning observations ...')
+        if len(self.simulation_data['obs']['ghi'].shape) == 3:
 
-        num_stations = len(self.simulation_data['longitudes'])
-        num_lead_times = len(self.simulation_data['lead_times'])
-        num_test_times = len(self.simulation_data['test_times'])
+            # Initialize dimensions
+            if self.verbose:
+                print('Aligning observations ...')
+    
+            num_stations = len(self.simulation_data['longitudes'])
+            num_lead_times = len(self.simulation_data['lead_times'])
+            num_test_times = len(self.simulation_data['test_times'])
+    
+            # Initialize arrays
+            obs_dict = {
+                'ghi': np.full((1, num_lead_times, num_test_times, num_stations), np.nan),
+                'alb': np.full((1, num_lead_times, num_test_times, num_stations), np.nan),
+                'wspd': np.full((1, num_lead_times, num_test_times, num_stations), np.nan),
+                'tamb': np.full((1, num_lead_times, num_test_times, num_stations), np.nan)
+            }
+    
+            # Read observation times
+            obs_times = nc.groups["Observations"].variables["Times"]
+    
+            if self.parallel_nc:
+                obs_times.set_collective(True)
+    
+            obs_times = obs_times[:]
+    
+            # Reshape observations to expand dimensions of lead times and test times
+            for lead_time_index in range(num_lead_times):
+                for day_index in range(num_test_times):
+    
+                    fcst_time = self.simulation_data['lead_times'][lead_time_index] + \
+                                self.simulation_data['test_times'][day_index]
+                    obs_time_index, = np.where(obs_times == fcst_time)
+    
+                    if len(obs_time_index) == 1:
+                        for key, value in obs_dict.items():
+                            value[0, lead_time_index, day_index] = self.simulation_data['obs'][key][0, 0, obs_time_index]
 
-        # Initialize arrays
-        obs_dict = {
-            'ghi': np.full((1, num_lead_times, num_test_times, num_stations), np.nan),
-            'alb': np.full((1, num_lead_times, num_test_times, num_stations), np.nan),
-            'wspd': np.full((1, num_lead_times, num_test_times, num_stations), np.nan),
-            'tamb': np.full((1, num_lead_times, num_test_times, num_stations), np.nan)
-        }
-
-        # Read observation times
-        obs_times = nc.groups["Observations"].variables["Times"]
-
-        if self.parallel_nc:
-            obs_times.set_collective(True)
-
-        obs_times = obs_times[:]
-
-        # Reshape observations to expand dimensions of lead times and test times
-        for lead_time_index in range(num_lead_times):
-            for day_index in range(num_test_times):
-
-                fcst_time = self.simulation_data['lead_times'][lead_time_index] + \
-                            self.simulation_data['test_times'][day_index]
-                obs_time_index, = np.where(obs_times == fcst_time)
-
-                if len(obs_time_index) == 1:
-                    for key, value in obs_dict.items():
-                        value[0, lead_time_index, day_index] = self.simulation_data['obs'][key][0, 0, obs_time_index]
+            self.simulation_data['obs'] = obs_dict
 
         nc.close()
 
-        self.simulation_data['obs'] = obs_dict
         self.timer.stop()
