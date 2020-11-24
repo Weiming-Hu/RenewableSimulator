@@ -17,6 +17,8 @@ import os
 import math
 import yaml
 
+from Functions import read_yaml
+
 
 class Scenarios(dict):
     """
@@ -29,6 +31,8 @@ class Scenarios(dict):
     defined using the first value in all keys; scenario #2 is defined using the second value in the first key and
     the first value in all other keys.
     """
+    def read_yaml(self, path):
+        self.update(read_yaml(path))
 
     def total_scenarios(self):
         """
