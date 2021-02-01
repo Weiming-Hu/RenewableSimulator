@@ -13,7 +13,6 @@
 # The Pennsylvania State University
 #
 import gc
-import os
 
 from glob import glob
 from Functions import *
@@ -106,22 +105,13 @@ class SimulatorSolar(Simulator):
 
     def _prepare_sky_conditions(self):
 
-        if self.read_sky_conditions:
+        nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
 
-            # Try to read from the current file
-            source_file = self.nc_file
-            nc = Dataset(source_file, 'r', parallel=self.parallel_nc)
-
-            # If the group does not exist, try from the default file
-            if 'SkyConditions' not in nc.groups:
-                nc.close()
-                source_file = os.environ['DEFAULT_SKY_CONDITION_NC']
-                nc = Dataset(source_file, 'r', parallel=self.parallel_nc)
-
+        if 'SkyConditions' in nc.groups and self.read_sky_conditions:
             self.timer.start('Read sky conditions')
 
             if self.verbose:
-                print('Reading sky conditions from {} ...'.format(source_file))
+                print('Reading sky conditions ...')
 
             sky = read_array_dict(nc, 'SkyConditions', self.parallel_nc, self.stations_index)
 
@@ -140,9 +130,7 @@ class SimulatorSolar(Simulator):
             self.timer.stop()
 
         else:
-
             self.timer.start('Calculate sky conditions')
-            nc = Dataset(self.nc_file, 'a', parallel=self.parallel_nc)
 
             sky = simulate_sun_positions(
                 days=self.simulation_data['test_times'],
@@ -162,10 +150,9 @@ class SimulatorSolar(Simulator):
             write_array_dict(nc, 'SkyConditions', sky, ('num_flts', 'num_test_times', 'num_stations'),
                              self.parallel_nc, self.stations_index)
 
-            nc.close()
-
             self.timer.stop()
 
+        nc.close()
         # Merge results
         assert all([k not in sky.keys() for k in self.simulation_data.keys()]), 'Duplicate names found during merging'
         self.simulation_data = {**self.simulation_data, **sky}
