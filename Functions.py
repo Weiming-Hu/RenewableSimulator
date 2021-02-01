@@ -16,8 +16,6 @@
 import os
 import math
 import yaml
-import pickle
-import tempfile
 
 import numpy as np
 import pandas as pd
@@ -196,6 +194,12 @@ def simulate_power_by_station(
                 apparent_zenith_ = apparent_zenith[lead_time_index, day_index, station_index]
                 azimuth_ = azimuth[lead_time_index, day_index, station_index]
 
+                ##########################################################################################
+                #                                                                                        #
+                #                     Core procedures of simulating power at one location                #
+                #                                                                                        #
+                ##########################################################################################
+
                 # Decompose DNI from GHI
                 dni_dict = irradiance.disc(ghi_, zenith_, current_time)
 
@@ -343,7 +347,6 @@ def simulate_power(group_name, scenarios, nc,
 
         write_array_dict(nc_scenario_group, group_name, results, output_dims, parallel_nc, output_stations_index)
         timer.stop()
-
 
 
 #######################
