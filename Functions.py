@@ -239,7 +239,7 @@ def simulate_power(group_name, scenarios, nc,
                    ghi, tamb, wspd, alb, days, lead_times,
                    air_mass, dni_extra, zenith, apparent_zenith, azimuth,
                    parallel_nc=False, cores=1, verbose=True, output_stations_index=None,
-                   disable_progress_bar=False, timer=None):
+                   disable_progress_bar=False, timer=None, skip_existing_scenario=False):
     """
     Simulate power and write to a specific group in the NetCDF file.
 
@@ -263,6 +263,7 @@ def simulate_power(group_name, scenarios, nc,
     :param output_stations_index: Station indices used when writing output
     :param disable_progress_bar: Whether to hide progress bars
     :param timer: A simple timer
+    :param skip_existing_scenario: Whether to skip simulation if a scenario already exists
     """
 
     # Sanity check
@@ -298,7 +299,17 @@ def simulate_power(group_name, scenarios, nc,
         current_scenario = scenarios.get_scenario(scenario_index)
 
         # Create a group for the current scenario
-        nc_scenario_group = nc.createGroup("PV_simulation_scenario_" + '{:05d}'.format(scenario_index))
+        scenario_name = "PV_simulation_scenario_" + '{:05d}'.format(scenario_index)
+
+        if skip_existing_scenario and scenario_name in nc.groups:
+
+            if verbose:
+                print("Skip scenario {}/{}".format(scenario_index + 1, num_scenarios))
+
+            timer.stop()
+            continue
+
+        nc_scenario_group = nc.createGroup(scenario_name)
 
         # Write the scenario to the group
         for key, value in current_scenario.items():

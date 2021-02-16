@@ -59,6 +59,8 @@ if __name__ == '__main__':
                         nargs='*', type=int, default=None, dest='stations_index')
     parser.add_argument('--re-simulate-sky-conditions', action='store_true', dest='re_simulate_sky_conditions',
                         help='Whether to force simulating sky conditions even when it exists')
+    parser.add_argument('--skip-existing-scenario', action='store_true', dest='skip_existing_scenario',
+                        help='Whether to skip simulation of existing scenarios')
 
     # Parse arguments
     args = parser.parse_args()
@@ -127,7 +129,8 @@ if __name__ == '__main__':
                                       mpi_size > 1, args.stations_index[start:end],
                                       not args.re_simulate_sky_conditions, args.cores,
                                       args.verbose if mpi_rank == 0 else False,
-                                      args.no_bars if mpi_rank == 0 else True)
+                                      args.no_bars if mpi_rank == 0 else True,
+                                      args.skip_existing_scenario)
 
     if mpi_rank == 0:
         print('\n' + simulator.summary() + '\n')

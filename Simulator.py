@@ -219,8 +219,8 @@ class SimulatorSolarSurfrad(SimulatorSolar):
 
         if self.cores == 1:
             data = [None] * len(self.data_files)
-            for data_file in tqdm(self.data_files, disable=disable_progress_bar):
-                data[station_index] = iotools.read_surfrad(data_file)
+            for idx, data_file in tqdm(enumerate(self.data_files), disable=self.disable_progress_bar):
+                data[idx] = iotools.read_surfrad(data_file)
         else:
             data = process_map(iotools.read_surfrad, self.data_files, max_workers=self.cores,
                                disable=self.disable_progress_bar,
@@ -279,7 +279,8 @@ class SimulatorSolarSurfrad(SimulatorSolar):
 
             if self.cores == 1:
                 surfrad = [None] * len(self.simulation_data['stations'])
-                for station_index in tqdm(range(len(self.simulation_data['stations'])), disable=disable_progress_bar):
+                for station_index in tqdm(range(len(self.simulation_data['stations'])),
+                                          disable=self.disable_progress_bar):
                     surfrad[station_index] = wrapper(station_index)
             else:
                 surfrad = process_map(wrapper, range(len(self.simulation_data['stations'])), max_workers=self.cores,
@@ -378,7 +379,7 @@ class SimulatorSolarAnalogs(SimulatorSolar):
 
     def __init__(self, nc_file, variable_dict, scenarios, solar_position_method='nrel_numpy',
                  parallel_nc=False, stations_index=None, read_sky_conditions=True,
-                 cores=1, verbose=True, disable_progress_bar=False):
+                 cores=1, verbose=True, disable_progress_bar=False, skip_existing_scenario=False):
 
         if verbose:
             print('Initializing PV simulation with Analog Ensemble ...')
@@ -388,6 +389,7 @@ class SimulatorSolarAnalogs(SimulatorSolar):
 
         # Initialization
         self.variable_dict = variable_dict
+        self.skip_existing_scenario = skip_existing_scenario
 
         # Process variable dict
         if isinstance(self.variable_dict, str):
@@ -417,7 +419,7 @@ class SimulatorSolarAnalogs(SimulatorSolar):
                            self.simulation_data['air_mass'], self.simulation_data['dni_extra'],
                            self.simulation_data['zenith'], self.simulation_data['apparent_zenith'],
                            self.simulation_data['azimuth'], self.parallel_nc, self.cores, self.verbose,
-                           self.stations_index, self.disable_progress_bar, self.timer)
+                           self.stations_index, self.disable_progress_bar, self.timer, self.skip_existing_scenario)
 
         nc.close()
         gc.collect()
