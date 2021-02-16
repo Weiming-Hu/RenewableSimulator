@@ -301,13 +301,15 @@ def simulate_power(group_name, scenarios, nc,
         # Create a group for the current scenario
         scenario_name = "PV_simulation_scenario_" + '{:05d}'.format(scenario_index)
 
-        if skip_existing_scenario and scenario_name in nc.groups:
+        if skip_existing_scenario:
+            if scenario_name in nc.groups:
+                if group_name in nc.groups[scenario_name].groups:
 
-            if verbose:
-                print("Skip scenario {}/{}".format(scenario_index + 1, num_scenarios))
+                    if verbose:
+                        print("Skip simulating {} for scenario {}/{}".format(group_name, scenario_index + 1, num_scenarios))
 
-            timer.stop()
-            continue
+                    timer.stop()
+                    continue
 
         nc_scenario_group = nc.createGroup(scenario_name)
 
